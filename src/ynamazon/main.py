@@ -7,7 +7,7 @@ from rich.prompt import Confirm
 
 from ynamazon.amazon_transactions import (
     AmazonConfig,
-    get_amazon_transactions,
+    AmazonTransactionRetriever,
     locate_amazon_transaction_by_amount,
 )
 from ynamazon.exceptions import YnabSetupError
@@ -20,6 +20,11 @@ from ynamazon.ynab_transactions import (
     markdown_formatted_title,
     update_ynab_transaction,
 )
+
+try:
+    from ynamazon.ynab_memo import process_memo
+except ImportError:
+    pass
 
 if TYPE_CHECKING:
     from ynab.configuration import Configuration
@@ -45,6 +50,7 @@ def process_transactions(  # noqa: C901
     amazon_config: AmazonConfig | None = None,
     ynab_config: "Configuration | None" = None,
     budget_id: str | None = None,
+    force_refresh_amazon: bool = False,
 ) -> None:
     """Match YNAB transactions to Amazon Transactions and optionally update YNAB Memos."""
     amazon_config = amazon_config or AmazonConfig()
@@ -62,7 +68,10 @@ def process_transactions(  # noqa: C901
         return
 
     console.print("[cyan]Starting search for Amazon transactions...[/]")
-    amazon_trans = get_amazon_transactions(configuration=amazon_config)
+    amazon_trans = AmazonTransactionRetriever(
+        amazon_config=amazon_config, force_refresh_amazon=force_refresh_amazon
+    ).get_amazon_transactions()
+
     console.print(f"[green]{len(amazon_trans)} Amazon transactions retrieved successfully.[/]")
 
     console.print("[cyan]Starting to look for matching transactions...[/]")
@@ -98,14 +107,15 @@ def process_transactions(  # noqa: C901
             memo.append(f"- {markdown_formatted_title(item.title, item.link)}")
 
         memo.append(
-            markdown_formatted_link(f"Order #{amazon_tran.order_number}", amazon_tran.order_link)
+            markdown_formatted_link(f"\nOrder #{amazon_tran.order_number}", amazon_tran.order_link)
         )
 
         console.print("[bold u green]Memo:[/]")
         console.print(str(memo))
 
-        # Process the memo and use new AI summary or trucation if needed
-        memo = process_memo(str(memo))
+        # Only use the AI processing if OpenAI is installed
+        if "process_memo" in globals():
+            memo = process_memo(str(memo))
 
         console.print("[bold u green]Processed Memo:[/]")
         console.print(memo)

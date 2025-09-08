@@ -16,11 +16,12 @@ dependencies = [
     "pydantic-core>=2.33.1",
     "furl>=2.1.4",
     "requests>=2.30.0",
+    "cache-decorator>=2.2.0",
 ]
 
 [project.optional-dependencies]
 ai = [
-    "openai>=1.12.0",  # OpenAI Python client for AI summarization
+    "openai>=1.12.0", # OpenAI Python client for AI summarization
 ]
 
 [project.urls]
@@ -59,8 +60,8 @@ build-backend = "hatchling.build"
 
 
 [[tool.mypy.overrides]]
-module= ["amazonorders.*"]
+module = ["amazonorders.*"]
 ignore_missing_imports = true
 
-# [tool.deptry]
-# known_first_party = ["ynamazon"]
+[tool.deptry]
+known_first_party = ["ynamazon"]

@@ -1,7 +1,6 @@
 # ruff: noqa: D212, D415
 from typing import Annotated
 
-from loguru import logger
 from rich import print as rprint
 from rich.console import Console
 from rich.table import Table
@@ -9,7 +8,7 @@ from typer import Argument, Context, Option, Typer
 from typer import run as typer_run
 from ynab.configuration import Configuration
 
-from ynamazon.amazon_transactions import AmazonConfig, get_amazon_transactions
+from ynamazon.amazon_transactions import AmazonConfig, AmazonTransactionRetriever
 from ynamazon.main import process_transactions
 from ynamazon.settings import settings
 from ynamazon.ynab_transactions import get_ynab_transactions
@@ -70,6 +69,7 @@ def print_ynab_transactions(
 
 @cli.command("print-amazon")
 def print_amazon_transactions(
+    ctx: Context,
     user_email: Annotated[
         str,
         Argument(help="Amazon username", default_factory=lambda: settings.amazon_user),
@@ -82,7 +82,7 @@ def print_amazon_transactions(
         ),
     ],
     order_years: Annotated[
-        list[int] | None,
+        list[str] | None,
         Option("-y", "--years", help="Order years; leave empty for current year"),
     ] = None,
     transaction_days: Annotated[
@@ -96,13 +96,14 @@ def print_amazon_transactions(
     """
     console = Console()
 
-    config = AmazonConfig(username=user_email, password=user_password)  # pyright: ignore[reportArgumentType]
+    amazon_config = AmazonConfig(username=user_email, password=user_password)  # type: ignore[arg-type]
 
-    transactions = get_amazon_transactions(
-        configuration=config,
+    transactions = AmazonTransactionRetriever(
+        amazon_config=amazon_config,
         order_years=order_years,
         transaction_days=transaction_days,
-    )
+        force_refresh_amazon=ctx.obj["force_refresh_amazon"],
+    ).get_amazon_transactions()
 
     console.print(f"[bold green]Found {len(transactions)} transactions.[/]")
 
@@ -133,6 +134,7 @@ def print_amazon_transactions(
 
 @cli.command()
 def ynamazon(
+    ctx: Context,
     ynab_api_key: Annotated[
         str | None,
         Argument(
@@ -161,41 +163,54 @@ def ynamazon(
             default_factory=lambda: settings.amazon_password.get_secret_value(),
         ),
     ],
-    force_logout: Annotated[
-        bool, Option("--force-logout", "-f", help="Force logout of Amazon account")
+    force_refresh_amazon: Annotated[
+        bool,
+        Option(
+            "--force-refresh-amazon",
+            help="Force refresh of Amazon transactions instead of depending on cached data",
+            is_flag=True,
+        ),
     ] = False,
-    debug: Annotated[bool, Option("--debug", "-d", help="Enable debug mode")] = False,
 ) -> None:
     """
-    [bold cyan]Match YNAB transactions to Amazon Transactions and optionally update YNAB Memos.[/]
+    [bold cyan](Default) Match YNAB transactions to Amazon Transactions and optionally update YNAB Memos.[/]
 
     [yellow i]All required arguments will use defaults in .env file if not provided.[/]
     """
-    console = Console()
-    if debug:
-        logger.debug("Debug mode enabled. Logging set to DEBUG level.")
-        logger.debug(f"Amazon Credentials: {amazon_user}")
-
-    config = AmazonConfig(username=amazon_user, password=amazon_password, debug=debug)  # pyright: ignore[reportArgumentType]
-
-    if force_logout:
-        console.print("[bold yellow]Forcing logout of Amazon account...[/]")
-        config.amazon_session().logout()
+    # Store the flag in the Typer context for use in commands
+    ctx.obj = {"force_refresh_amazon": force_refresh_amazon}
 
     process_transactions(
-        amazon_config=config,
+        amazon_config=AmazonConfig(
+            username=amazon_user,
+            password=amazon_password,
+            force_refresh_amazon=ctx.obj["force_refresh_amazon"],
+        ),  # type: ignore[arg-type]
         ynab_config=Configuration(access_token=ynab_api_key),
         budget_id=ynab_budget_id,
     )
 
 
 @cli.callback(invoke_without_command=True)
-def yna_callback(ctx: Context) -> None:
+def yna_callback(
+    ctx: Context,
+    force_refresh_amazon: Annotated[
+        bool,
+        Option(
+            "--force-refresh-amazon",
+            help="Force refresh of Amazon transactions (don't use the cached data)",
+            is_flag=True,
+        ),
+    ] = False,
+) -> None:
     """
     [bold cyan]Run 'yna' to match and update transactions using the arguements in .env. [/]
 
     [yellow i]Use 'yna ynamazon [ARGS]' to use command-line arguements to override .env. [/]
     """
+    # Store the flag in the Typer context for use in commands
+    ctx.obj = {"force_refresh_amazon": force_refresh_amazon}
+
     rprint("[bold cyan]Starting YNAmazon processing...[/]")
     if ctx.invoked_subcommand is None:
         typer_run(function=ynamazon)
