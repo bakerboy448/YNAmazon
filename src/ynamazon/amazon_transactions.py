@@ -3,18 +3,19 @@ import os
 import tempfile
 from datetime import date
 from decimal import Decimal
-from typing import Annotated, Union  # ,  Self  # not available python <3.11
+from typing import Annotated, Union, cast  # ,  Self  # not available python <3.11
 
 from amazonorders.entity.order import Order
 from amazonorders.entity.transaction import Transaction
-from amazonorders.orders import AmazonOrders
 from amazonorders.session import AmazonSession
-from amazonorders.transactions import AmazonTransactions
 from cache_decorator import Cache
 from loguru import logger
 from pydantic import AnyUrl, BaseModel, EmailStr, Field, SecretStr, field_validator
 from rich import print as rprint
 from rich.table import Table
+
+from ynamazon.order_models import AmazonOrderModels
+from ynamazon.transaction_models import AmazonTransactionModels
 
 from .settings import settings
 from .types_pydantic import AmazonItemType
@@ -42,16 +43,16 @@ class AmazonTransactionWithOrderInfo(BaseModel):
     @classmethod
     def from_transaction_and_orders(cls, orders_dict: "dict[str, Order]", transaction: Transaction):
         """Creates an instance from an order and transactions."""
-        order = orders_dict.get(transaction.order_number)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportAttributeAccessIssue]
+        order = orders_dict.get(transaction.order_number)
         if order is None:
-            raise ValueError(f"Order with number {transaction.order_number} not found.")  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
+            raise ValueError(f"Order with number {transaction.order_number} not found.")
         return cls(
-            completed_date=transaction.completed_date,  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportAttributeAccessIssue]
-            transaction_total=transaction.grand_total,  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportAttributeAccessIssue]
-            order_total=order.grand_total,  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportAttributeAccessIssue]
-            order_number=order.order_number,  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportAttributeAccessIssue]
-            order_link=order.order_details_link,  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportAttributeAccessIssue]
-            items=order.items,  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportAttributeAccessIssue]
+            completed_date=transaction.completed_date,
+            transaction_total=transaction.grand_total,  # pyright: ignore[reportArgumentType]
+            order_total=order.grand_total,  # pyright: ignore[reportArgumentType]
+            order_number=order.order_number,
+            order_link=order.order_details_link,  # pyright: ignore[reportArgumentType]
+            items=order.items,
         )
 
 
@@ -77,11 +78,19 @@ class AmazonConfig(BaseModel):
         )
 
 
+def validate_year(year: str | int) -> int:
+    """Validates that a year has been entered with 4 digits."""
+    year_str = str(year)
+    if len(year_str) == 4 and year_str.isdigit():
+        return int(year_str)
+    raise ValueError("Year must be a 4-digit number.")
+
+
 class AmazonTransactionRetriever:
     def __init__(
         self,
         amazon_config: AmazonConfig,
-        order_years: list[str] | None = None,
+        order_years: list[str | int] | None = None,
         transaction_days: int = 31,
         force_refresh_amazon: bool = False,
     ):
@@ -92,13 +101,15 @@ class AmazonTransactionRetriever:
         transaction_days (int): Number of days to fetch transactions for. Defaults to 31.
         force_refresh_amazon (bool): Refresh cache by fetching transactions directly from Amazon.
         """
-        self.amazon_config = amazon_config
-        self.order_years = self.__class__._normalized_years(order_years)
-        self.transaction_days = transaction_days
-        self.force_refresh_amazon = force_refresh_amazon
+        self.amazon_config: AmazonConfig = amazon_config
+        self.order_years: list[int] = self.normalize_years(order_years)
+        self.transaction_days: int = transaction_days
+        self.force_refresh_amazon: bool = force_refresh_amazon
 
         # for memoizing the results of method calls
-        self._memo = {}
+        self._session: AmazonSession | None = None
+        self._amazon_orders: AmazonOrderModels | None = None
+        self._amazon_transactions: AmazonTransactionModels | None = None
 
     def get_amazon_transactions(self) -> list[AmazonTransactionWithOrderInfo]:
         """Get Amazon transactions linked to orders.
@@ -108,13 +119,17 @@ class AmazonTransactionRetriever:
         Returns:
             list[TransactionWithOrderInfo]: A list of transactions with order info
         """
-        return self._get_amazon_transactions(
-            order_years=self.order_years,
-            transaction_days=self.transaction_days,
-            amazon_config=self.amazon_config,
-            use_cache=not self.force_refresh_amazon,
+        return cast(
+            "list[AmazonTransactionWithOrderInfo]",
+            self._get_amazon_transactions(
+                order_years=self.order_years,
+                transaction_days=self.transaction_days,
+                amazon_config=self.amazon_config,
+                use_cache=not self.force_refresh_amazon,
+            ),
         )
 
+    # HACK: unused parameters are needed for caching to work correctly
     @Cache(
         validity_duration="2h",
         enable_cache_arg_name="use_cache",
@@ -126,13 +141,14 @@ class AmazonTransactionRetriever:
     )
     def _get_amazon_transactions(
         self,
-        order_years: list[str],
-        transaction_days: int,
-        amazon_config: AmazonConfig,
+        order_years: list[str],  # pyright: ignore[reportUnusedParameter]
+        transaction_days: int,  # pyright: ignore[reportUnusedParameter]
+        amazon_config: AmazonConfig,  # pyright: ignore[reportUnusedParameter]
+        use_cache: bool = True,  # pyright: ignore[reportUnusedParameter]
     ) -> list[AmazonTransactionWithOrderInfo]:
-        orders_dict = {order.order_number: order for order in self._amazon_orders()}
+        orders_dict = {order.order_number: order for order in self.fetch_amazon_orders()}
 
-        amazon_transactions = self._amazon_transactions()
+        amazon_transactions = self.fetch_amazon_transactions()
 
         amazon_transaction_with_order_details: list[AmazonTransactionWithOrderInfo] = []
         for transaction in amazon_transactions:
@@ -150,7 +166,7 @@ class AmazonTransactionRetriever:
 
         return amazon_transaction_with_order_details
 
-    def _amazon_orders(self) -> list[Order]:
+    def fetch_amazon_orders(self) -> AmazonOrderModels:
         """Returns a list of Amazon orders.
 
         Args:
@@ -159,60 +175,48 @@ class AmazonTransactionRetriever:
         Returns:
             list[Order]: A list of Amazon orders.
         """
-        if "amazon_orders" in self._memo:
-            return self._memo["amazon_orders"]
+        if self._amazon_orders is not None:
+            return self._amazon_orders
 
-        amazon_orders = AmazonOrders(self._session())
+        orders = AmazonOrderModels.get_order_history(self.get_session(), self.order_years)
+        orders.sort_by_order_placed_date()
 
-        all_orders: list[Order] = []
-        for year in self.order_years:
-            all_orders.extend(amazon_orders.get_order_history(year=year))
-        all_orders.sort(key=lambda order: order.order_placed_date)
+        self._amazon_orders = orders
 
-        self._memo["amazon_orders"] = all_orders
+        return self._amazon_orders
 
-        return self._memo["amazon_orders"]
-
-    def _amazon_transactions(self) -> list[Transaction]:
+    def fetch_amazon_transactions(self) -> AmazonTransactionModels:
         """Fetches and sorts Amazon transactions."""
-        if "amazon_transactions" in self._memo:
-            return self._memo["amazon_transactions"]
+        if self._amazon_transactions is not None:
+            return self._amazon_transactions
 
-        self._memo["amazon_transactions"] = AmazonTransactions(
-            amazon_session=self._session()
-        ).get_transactions(days=self.transaction_days)
+        transactions = AmazonTransactionModels.get_transactions(
+            self.get_session(), self.transaction_days
+        )
+        transactions.sort_by_completed_date()
 
-        self._memo["amazon_transactions"].sort(key=lambda trans: trans.completed_date)
+        self._amazon_transactions = transactions
 
-        return self._memo["amazon_transactions"]
+        return self._amazon_transactions
 
-    def _session(self) -> AmazonSession:
-        if "session" in self._memo:
-            return self._memo["session"]
+    def get_session(self) -> AmazonSession:
+        if self._session is not None:
+            return self._session
 
         amazon_session = self.amazon_config.amazon_session()
         amazon_session.login()
 
         if amazon_session.is_authenticated:
-            self._memo["session"] = amazon_session
-            return self._memo["session"]
+            self._session = amazon_session
+            return self._session
+        raise ValueError("Failed to authenticate with Amazon.")
 
     @classmethod
-    def _normalized_years(cls, years: list[str] | None = None) -> list[str]:
+    def normalize_years(cls, years: list[str | int] | None = None) -> list[int]:
         if years is None:
             return [date.today().year]
 
-        result: list[str] = []
-
-        for year in years:
-            if len(year) == 2:
-                result.append("20" + year)
-            elif len(year) == 4:
-                result.append(year)
-            else:
-                raise ValueError("Year must be specified as 2 or 4 digits (e.g. 21 or 2021)")
-
-        return result
+        return [validate_year(year) for year in years]
 
 
 def print_amazon_transactions(
@@ -239,7 +243,7 @@ def print_amazon_transactions(
             f"${transaction.order_total:.2f}",
             transaction.order_number,
             str(transaction.order_link),
-            " | ".join(_truncate_title(item.title) for item in transaction.items),  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportAttributeAccessIssue]
+            " | ".join(_truncate_title(item.title) for item in transaction.items),
         )
 
     rprint(table)

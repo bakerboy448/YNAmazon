@@ -1,10 +1,10 @@
 from collections.abc import Callable, Iterable, Mapping
 from typing import Generic, Self, SupportsIndex, TypeVar, cast, overload, override
 
-from pydantic import BaseModel, RootModel
+from pydantic import BaseModel, Field, RootModel
 from pydantic_core.core_schema import ListSchema, ModelSchema
 
-_ModelT = TypeVar("_ModelT", bound=BaseModel)
+_ModelT = TypeVar("_ModelT")
 _T = TypeVar("_T")
 
 
@@ -92,3 +92,18 @@ class DictRootModel(RootModel[dict[_KV, _VT]], Generic[_KV, _VT]):
     def __len__(self) -> int:
         """Returns the number of items in the dict."""
         return len(self.root)
+
+
+class MultiLineText(BaseModel):
+    """A class to handle multi-line text."""
+
+    lines: list[str] = Field(default_factory=list)
+
+    @override
+    def __str__(self) -> str:
+        """Returns the string representation of the object."""
+        return "\n".join(self.lines)
+
+    def append(self, line: str) -> None:
+        """Appends a line to the text."""
+        self.lines.append(line)

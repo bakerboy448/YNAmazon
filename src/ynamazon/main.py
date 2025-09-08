@@ -1,7 +1,6 @@
-from typing import TYPE_CHECKING, override
+from typing import TYPE_CHECKING
 
 from loguru import logger
-from pydantic import BaseModel, Field
 from rich.console import Console
 from rich.prompt import Confirm
 
@@ -10,6 +9,7 @@ from ynamazon.amazon_transactions import (
     AmazonTransactionRetriever,
     locate_amazon_transaction_by_amount,
 )
+from ynamazon.base import MultiLineText
 from ynamazon.exceptions import YnabSetupError
 from ynamazon.settings import settings
 from ynamazon.ynab_memo import process_memo
@@ -28,21 +28,6 @@ except ImportError:
 
 if TYPE_CHECKING:
     from ynab.configuration import Configuration
-
-
-class MultiLineText(BaseModel):
-    """A class to handle multi-line text."""
-
-    lines: list[str] = Field(default_factory=list)
-
-    @override
-    def __str__(self) -> str:
-        """Returns the string representation of the object."""
-        return "\n".join(self.lines)
-
-    def append(self, line: str) -> None:
-        """Appends a line to the text."""
-        self.lines.append(line)
 
 
 # TODO: reduce complexity of this function

@@ -1,6 +1,6 @@
 from collections.abc import Iterable
 from decimal import Decimal
-from typing import Any, TypeVar, Union
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from loguru import logger
 from pydantic import AnyUrl
@@ -18,6 +18,9 @@ from ynab.models.put_transaction_wrapper import PutTransactionWrapper
 from ynamazon.base import ListRootModel
 from ynamazon.exceptions import YnabSetupError
 from ynamazon.settings import settings
+
+if TYPE_CHECKING:
+    from ynamazon.base import MultiLineText
 
 default_configuration = Configuration(access_token=settings.ynab_api_key.get_secret_value())
 my_budget_id = settings.ynab_budget_id
@@ -82,8 +85,8 @@ class Payees(ListRootModel[Payee]):
 
 
 def get_payees_by_budget(
-    configuration: Union[Configuration, None] = None,
-    budget_id: Union[str, None] = None,
+    configuration: Configuration | None = None,
+    budget_id: str | None = None,
 ) -> list["Payee"]:
     """Returns a list of payees by budget ID.
 
@@ -104,8 +107,8 @@ def get_payees_by_budget(
 
 def get_transactions_by_payee(
     payee: Payee,
-    configuration: Union[Configuration, None] = None,
-    budget_id: Union[str, None] = None,
+    configuration: Configuration | None = None,
+    budget_id: str | None = None,
 ) -> list[TempYnabTransaction]:
     """Returns a list of transactions by payee.
 
@@ -129,8 +132,8 @@ def get_transactions_by_payee(
 
 
 def get_ynab_transactions(
-    configuration: Union[Configuration, None] = None,
-    budget_id: Union[str, None] = None,
+    configuration: Configuration | None = None,
+    budget_id: str | None = None,
 ) -> tuple[TempYnabTransactions, "Payee"]:
     """Returns a tuple of YNAB transactions and the payee.
 
@@ -172,10 +175,10 @@ def get_ynab_transactions(
 
 def update_ynab_transaction(
     transaction: "HybridTransaction",
-    memo: str,
+    memo: "str | MultiLineText",
     payee_id: str,
-    configuration: Union[Configuration, None] = None,
-    budget_id: Union[str, None] = None,
+    configuration: Configuration | None = None,
+    budget_id: str | None = None,
 ) -> None:
     """Updates a YNAB transaction with the given memo and payee ID.
 
@@ -231,7 +234,7 @@ def update_ynab_transaction(
 _T = TypeVar("_T", bound=Payee)
 
 
-def find_item_by_attribute(items: Iterable[_T], attribute: str, value: Any) -> Union[_T, None]:
+def find_item_by_attribute(items: Iterable[_T], attribute: str, value: Any) -> _T | None:  # pyright: ignore[reportExplicitAny, reportAny]
     """Finds an item in a list by its attribute value.
 
     Args:
@@ -268,7 +271,7 @@ def print_ynab_transactions(transactions: list[TempYnabTransaction]) -> None:
     rprint(table)
 
 
-def markdown_formatted_title(title: str, url: Union[str, AnyUrl]) -> str:
+def markdown_formatted_title(title: str, url: str | AnyUrl) -> str:
     """Returns a formatted item title in markdown or raw format, dependent on ynab_use_markdown.
 
     Args:
@@ -284,7 +287,7 @@ def markdown_formatted_title(title: str, url: Union[str, AnyUrl]) -> str:
     return title
 
 
-def markdown_formatted_link(title: str, url: Union[str, AnyUrl]) -> str:
+def markdown_formatted_link(title: str, url: str | AnyUrl) -> str:
     """Returns a link in markdown or raw format, dependent on ynab_use_markdown.
 
     Args:
@@ -308,4 +311,4 @@ if __name__ == "__main__":
     if not ynab_transactions:
         rprint("[bold red]No transactions found.[/]")
         exit(1)
-    print_ynab_transactions(transactions=ynab_transactions)
+    print_ynab_transactions(transactions=ynab_transactions.root)
