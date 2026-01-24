@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     ynab_use_markdown: bool = False
     use_ai_summarization: bool = False
     suppress_partial_order_warning: bool = False
+    amazon_debug: bool = False
 
     @model_validator(mode="after")
     def validate_settings(self) -> "Settings":

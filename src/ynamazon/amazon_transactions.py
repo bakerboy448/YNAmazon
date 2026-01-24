@@ -65,7 +65,7 @@ class AmazonConfig(BaseModel):
 
     username: EmailStr = Field(default_factory=lambda: settings.amazon_user)
     password: SecretStr = Field(default_factory=lambda: settings.amazon_password)
-    debug: bool = False
+    debug: bool = Field(default_factory=lambda: settings.amazon_debug)
 
     def amazon_session(self) -> AmazonSession:
         """Creates an Amazon session."""
