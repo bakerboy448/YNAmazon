@@ -1,12 +1,10 @@
 name: Release
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       prerelease:
-        description: 'Create pre-release'
+        description: 'Create pre-release instead of stable release'
         required: false
         default: false
         type: boolean
@@ -29,7 +27,7 @@ jobs:
         id: release
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          prerelease: ${{ github.event_name == 'push' || inputs.prerelease }}
+          prerelease: ${{ inputs.prerelease }}
 
   docker:
     needs: release
@@ -52,7 +50,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}},value=${{ needs.release.outputs.version }}
             type=semver,pattern={{major}}.{{minor}},value=${{ needs.release.outputs.version }}
-            type=raw,value=latest,enable=${{ github.event_name == 'workflow_dispatch' && !inputs.prerelease }}
+            type=raw,value=latest,enable=${{ !inputs.prerelease }}
       - uses: docker/build-push-action@v6
         with:
           context: .
