@@ -51,6 +51,7 @@ def process_transactions(  # noqa: C901
     ynab_config: "Configuration | None" = None,
     budget_id: str | None = None,
     force_refresh_amazon: bool = False,
+    dry_run: bool = False,
 ) -> None:
     """Match YNAB transactions to Amazon Transactions and optionally update YNAB Memos."""
     amazon_config = amazon_config or AmazonConfig()
@@ -58,6 +59,9 @@ def process_transactions(  # noqa: C901
     budget_id = budget_id or settings.ynab_budget_id.get_secret_value()
 
     console = Console()
+
+    if dry_run:
+        console.print("[bold yellow]DRY RUN MODE - No changes will be made[/]")
 
     try:
         ynab_trans, amazon_with_memo_payee = get_ynab_transactions(
@@ -134,6 +138,13 @@ def process_transactions(  # noqa: C901
             else:
                 _ = amazon_trans.pop(amazon_tran_index)
                 console.log("Removing matched transaction from search")
+
+        if dry_run:
+            console.print("[bold yellow]DRY RUN: Would update this transaction[/]")
+            console.print(f"[cyan]Current memo:[/] {ynab_tran.memo or '(empty)'}")
+            console.print(f"[green]Proposed memo:[/]\n{memo}")
+            console.print("\n")
+            continue
 
         update_transaction = Confirm.ask(
             "[bold cyan]Update YNAB transaction memo?[/]", console=console
