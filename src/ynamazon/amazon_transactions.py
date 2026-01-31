@@ -169,7 +169,7 @@ class AmazonTransactionRetriever:
 
         all_orders: list[Order] = []
         for year in self.order_years:
-            all_orders.extend(amazon_orders.get_order_history(year=year))
+            all_orders.extend(amazon_orders.get_order_history(year=year, full_details=settings.amazon_full_details))
         all_orders.sort(key=lambda order: order.order_placed_date)
 
         self._memo["amazon_orders"] = all_orders

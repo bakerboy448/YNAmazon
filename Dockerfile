@@ -51,6 +51,7 @@ ENV AMAZON_PASSWORD=""
 ENV AMAZON_OTP_SECRET_KEY=""
 ENV MATCH_EMPTY_MEMO="true"
 ENV AMAZON_DEBUG="false"
+ENV AMAZON_FULL_DETAILS="true"
 
 # Non-root user for security
 RUN useradd -m -u 1000 ynamazon && chown -R ynamazon:ynamazon /app
