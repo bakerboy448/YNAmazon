@@ -60,6 +60,7 @@ AMAZON_USER=your-amazon-email
 AMAZON_PASSWORD=your-amazon-password
 
 # Optional
+AMAZON_OTP_SECRET_KEY=your-totp-secret  # For automatic 2FA (TOTP secret from authenticator setup)
 MATCH_EMPTY_MEMO=true              # Match "Amazon" payee with empty memo (default: true)
 AMAZON_FULL_DETAILS=true           # Fetch item prices (slower, default: true)
 AMAZON_DEBUG=false                 # Enable debug logging
@@ -117,6 +118,17 @@ Set in `.env`:
 USE_AI_SUMMARIZATION=true
 OPENAI_API_KEY=your-openai-api-key
 ```
+
+## Two-Factor Authentication
+
+If your Amazon account has 2FA enabled, set `AMAZON_OTP_SECRET_KEY` to your TOTP secret:
+
+1. Go to Amazon > Account & Lists > Login & Security > Two-Step Verification
+2. Add a new authenticator app
+3. Click "Can't scan the barcode?" to reveal the secret key
+4. Use this secret key as `AMAZON_OTP_SECRET_KEY`
+
+The program will automatically generate OTP codes for login.
 
 ## Limitations
 

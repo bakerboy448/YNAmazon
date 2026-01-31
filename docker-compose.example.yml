@@ -1,8 +1,16 @@
 services:
   ynamazon:
     image: ghcr.io/bakerboy448/ynamazon:latest
+    container_name: ynamazon
     # build: .  # Uncomment to build locally
+    restart: "no"  # One-shot job, don't restart
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
+      - TZ=${TZ:-UTC}
       - YNAB_API_KEY=${YNAB_API_KEY}
       - YNAB_BUDGET_ID=${YNAB_BUDGET_ID}
       - AMAZON_USER=${AMAZON_USER}
@@ -11,11 +19,13 @@ services:
       - MATCH_EMPTY_MEMO=true
       - AMAZON_FULL_DETAILS=true
     volumes:
+      - /etc/localtime:/etc/localtime:ro
       - ./config:/app/config:ro
       - ynamazon-cache:/home/ynamazon/.cache/ynamazon
     # Override default command for different modes:
     # command: ["ynamazon", "--dry-run"]
     # command: ["ynamazon", "--force", "--dry-run"]
+    # command: ["ynamazon", "--days", "14"]
 
 volumes:
   ynamazon-cache:
