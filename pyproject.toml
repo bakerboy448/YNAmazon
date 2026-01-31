@@ -72,7 +72,7 @@ version_toml = ["pyproject.toml:project.version"]
 version_variables = ["src/ynamazon/__init__.py:__version__"]
 branch = "main"
 commit_message = "chore(release): {version}"
-build_command = "uv build"
+build_command = false
 
 [tool.semantic_release.changelog]
 template_dir = ".github/templates"
