@@ -1,6 +1,23 @@
 # CHANGELOG
 
 
+## v0.2.0 (2026-01-31)
+
+### Continuous Integration
+
+- Add multi-arch Docker build (amd64, arm64) and rebuild option
+  ([`e21910b`](https://github.com/bakerboy448/YNAmazon/commit/e21910bb1263759eb8ee3e22fc2f915805111a66))
+
+### Features
+
+- Add daemon mode with Python-native scheduling
+  ([`13bd679`](https://github.com/bakerboy448/YNAmazon/commit/13bd679c92c932b0d465b36311444d937fd5f7c8))
+
+- Add `yna daemon` command for self-scheduling (default 20h, min 12h, max 48h) - Use `schedule`
+  library for Python-native job scheduling - Remove supercronic dependency (simpler, no external
+  binaries) - Container runs immediately on start, then at configured interval
+
+
 ## v0.1.0 (2026-01-31)
 
 ### Bug Fixes
