@@ -17,6 +17,7 @@ dependencies = [
     "furl>=2.1.4",
     "requests>=2.30.0",
     "cache-decorator>=2.2.0",
+    "schedule>=1.2.0",
 ]
 
 [project.optional-dependencies]

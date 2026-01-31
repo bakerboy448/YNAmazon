@@ -10,21 +10,29 @@ COPY src/ ./src/
 RUN uv sync --frozen --no-dev
 
 FROM python:3.12-slim
+
+# Install chromium for browser automation
 RUN apt-get update && \
     apt-get install -y --no-install-recommends chromium chromium-driver && \
     rm -rf /var/lib/apt/lists/*
+
 RUN useradd -m ynamazon
 WORKDIR /app
 RUN mkdir -p /app/output /app/config && chown -R ynamazon:ynamazon /app
 COPY --from=builder --chown=ynamazon:ynamazon /app/.venv /app/.venv
 COPY --from=builder --chown=ynamazon:ynamazon /app/src /app/src
+
 ENV PATH="/app/.venv/bin:$PATH" \
     VIRTUAL_ENV="/app/.venv" \
     CHROME_BIN=/usr/bin/chromium \
     CHROMEDRIVER_PATH=/usr/bin/chromedriver \
     MATCH_EMPTY_MEMO="true" \
     AMAZON_DEBUG="false" \
-    AMAZON_FULL_DETAILS="true"
+    AMAZON_FULL_DETAILS="true" \
+    DAEMON_INTERVAL_HOURS="20"
+
 USER ynamazon
-ENTRYPOINT ["yna"]
-CMD ["ynamazon"]
+
+# Default: run as daemon with Python-native scheduling (20h interval)
+# Override CMD to run once: ["yna", "ynamazon"]
+CMD ["yna", "daemon", "--interval", "20"]

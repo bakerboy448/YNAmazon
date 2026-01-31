@@ -1,6 +1,10 @@
 # ruff: noqa: D212, D415
+import time
+from datetime import datetime
 from typing import Annotated
 
+import schedule
+from loguru import logger
 from rich import print as rprint
 from rich.console import Console
 from rich.table import Table
@@ -217,6 +221,81 @@ def ynamazon(
         dry_run=dry_run,
         force=force,
     )
+
+
+@cli.command()
+def daemon(
+    interval_hours: Annotated[
+        float,
+        Option(
+            "-i",
+            "--interval",
+            help="Hours between runs (min: 12, max: 48)",
+            min=12,
+            max=48,
+        ),
+    ] = 20,
+    dry_run: Annotated[
+        bool,
+        Option(
+            "--dry-run",
+            help="Show what would be updated without making changes",
+            is_flag=True,
+        ),
+    ] = False,
+    force: Annotated[
+        bool,
+        Option(
+            "--force",
+            help="Process all matching transactions, even those with existing memos",
+            is_flag=True,
+        ),
+    ] = False,
+) -> None:
+    """
+    [bold cyan]Run as a daemon with scheduled execution.[/]
+
+    Runs immediately on start, then every [interval] hours.
+    [yellow i]Uses settings from .env file.[/]
+    """
+
+    def run_sync() -> None:
+        """Execute a single sync run."""
+        logger.info(f"Starting scheduled sync at {datetime.now()}")
+        try:
+            process_transactions(
+                amazon_config=AmazonConfig(
+                    username=settings.amazon_user,
+                    password=settings.amazon_password.get_secret_value(),
+                    transaction_days=31,
+                ),
+                ynab_config=Configuration(
+                    access_token=settings.ynab_api_key.get_secret_value()
+                ),
+                budget_id=settings.ynab_budget_id.get_secret_value(),
+                dry_run=dry_run,
+                force=force,
+            )
+            logger.info("Sync completed successfully")
+        except Exception as e:
+            logger.exception(f"Sync failed: {e}")
+
+    rprint(f"[bold cyan]Starting YNAmazon daemon (interval: {interval_hours}h)[/]")
+    logger.info(f"Daemon starting with {interval_hours}h interval")
+
+    # Run immediately on start
+    run_sync()
+
+    # Schedule recurring runs
+    schedule.every(interval_hours).hours.do(run_sync)
+
+    next_run = datetime.now().timestamp() + (interval_hours * 3600)
+    logger.info(f"Next run scheduled for {datetime.fromtimestamp(next_run)}")
+
+    # Run the scheduler loop
+    while True:
+        schedule.run_pending()
+        time.sleep(60)  # Check every minute
 
 
 @cli.callback(invoke_without_command=True)
