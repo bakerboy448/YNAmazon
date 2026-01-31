@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.2.1 (2026-01-31)
+
+### Bug Fixes
+
+- Pass OTP secret key to AmazonSession for auto MFA
+  ([`a881b0d`](https://github.com/bakerboy448/YNAmazon/commit/a881b0d33c5ac93e39f7360c23489db929fab3a1))
+
+
 ## v0.2.0 (2026-01-31)
 
 ### Continuous Integration
