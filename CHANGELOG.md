@@ -1,7 +1,7 @@
 # CHANGELOG
 
 
-## v0.1.0-rc.1 (2026-01-31)
+## v0.1.0 (2026-01-31)
 
 ### Bug Fixes
 
@@ -13,6 +13,9 @@
 
 - Include README.md in Docker build context
   ([`2ccea02`](https://github.com/bakerboy448/YNAmazon/commit/2ccea02270ea9177fef28ea0fbd6cbfcc8930cf1))
+
+- Reset to clean 0.1.0 version, fix semantic-release config for PEP 440
+  ([`86d90fe`](https://github.com/bakerboy448/YNAmazon/commit/86d90fe8e0632beccdf2a0c23853ec16e30ed2f1))
 
 - Resolve lint/type errors, add gitleaks pre-commit, fix Docker permissions
   ([`f80a8be`](https://github.com/bakerboy448/YNAmazon/commit/f80a8be87280eb2bf2abfc086ad6d05e8a098f7d))
