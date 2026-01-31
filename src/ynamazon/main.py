@@ -1,7 +1,6 @@
-from typing import TYPE_CHECKING, override
+from typing import TYPE_CHECKING
 
 from loguru import logger
-from pydantic import BaseModel, Field
 from rich.console import Console
 from rich.prompt import Confirm
 
@@ -15,8 +14,6 @@ from ynamazon.settings import settings
 from ynamazon.ynab_transactions import default_configuration as ynab_configuration
 from ynamazon.ynab_transactions import (
     get_ynab_transactions,
-    markdown_formatted_link,
-    markdown_formatted_title,
     update_ynab_transaction,
 )
 
@@ -27,21 +24,6 @@ except ImportError:
 
 if TYPE_CHECKING:
     from ynab.configuration import Configuration
-
-
-class MultiLineText(BaseModel):
-    """A class to handle multi-line text."""
-
-    lines: list[str] = Field(default_factory=list)
-
-    @override
-    def __str__(self) -> str:
-        """Returns the string representation of the object."""
-        return "\n".join(self.lines)
-
-    def append(self, line: str) -> None:
-        """Appends a line to the text."""
-        self.lines.append(line)
 
 
 # TODO: reduce complexity of this function
@@ -100,31 +82,24 @@ def process_transactions(  # noqa: C901
             f"[green]Matching Amazon Transaction:[/] {amazon_tran.completed_date} ${amazon_tran.transaction_total:.2f}"
         )
 
-        memo = MultiLineText()
-        if amazon_tran.transaction_total != amazon_tran.order_total:
-            memo.append(
-                f"-This transaction doesn't represent the entire order. The order total is ${amazon_tran.order_total:.2f}-"
-            )
-        if len(amazon_tran.items) > 1:
-            memo.append("**Items**")
-            for i, item in enumerate(amazon_tran.items, start=1):
-                memo.append(f"{i}. {markdown_formatted_title(item.title, item.link)}")
-        elif len(amazon_tran.items) == 1:
-            item = amazon_tran.items[0]
-            memo.append(f"- {markdown_formatted_title(item.title, item.link)}")
+        # Build memo: "Item A ($XX.XX), Item B ($XX.XX) | Order #XXX"
+        def format_item(item) -> str:
+            price_str = f"(${item.price:.2f})" if item.price else ""
+            return f"{item.title} {price_str}".strip()
 
-        memo.append(
-            markdown_formatted_link(f"\nOrder #{amazon_tran.order_number}", amazon_tran.order_link)
-        )
+        items_str = ", ".join(format_item(item) for item in amazon_tran.items)
+        memo_text = f"{items_str} | Order #{amazon_tran.order_number}"
+
+        # Add warning if partial order
+        if amazon_tran.transaction_total != amazon_tran.order_total:
+            memo_text = f"[Partial - order total ${amazon_tran.order_total:.2f}] {memo_text}"
 
         console.print("[bold u green]Memo:[/]")
-        console.print(str(memo))
+        console.print(memo_text)
 
         # Only use the AI processing if OpenAI is installed
         if "process_memo" in globals():
-            memo = process_memo(str(memo))
-        else:
-            memo = str(memo)
+            memo_text = process_memo(memo_text)
 
         if amazon_tran.completed_date != ynab_tran.var_date:
             console.print(
@@ -144,7 +119,7 @@ def process_transactions(  # noqa: C901
         if dry_run:
             console.print("[bold yellow]DRY RUN: Would update this transaction[/]")
             console.print(f"[cyan]Current memo:[/] {ynab_tran.memo or '(empty)'}")
-            console.print(f"[green]Proposed memo:[/]\n{memo}")
+            console.print(f"[green]Proposed memo:[/] {memo_text}")
             console.print("\n")
             continue
 
@@ -154,14 +129,14 @@ def process_transactions(  # noqa: C901
         if not update_transaction:
             console.print("[yellow]Skipping YNAB transaction update...[/]\n\n")
             console.print("[cyan i]Memo Preview[/]:")
-            console.print(str(memo))
+            console.print(memo_text)
             continue
 
         console.print("[green]Updating YNAB transaction memo...[/]")
 
         update_ynab_transaction(
             transaction=ynab_tran,
-            memo=memo,
+            memo=memo_text,
             payee_id=amazon_with_memo_payee.id,
         )
         console.print("\n\n")
