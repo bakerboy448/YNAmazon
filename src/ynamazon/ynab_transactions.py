@@ -150,22 +150,29 @@ def get_ynab_transactions(
     payees = Payees.get_by_budget(configuration=configuration, budget_id=budget_id)
 
     rprint("Finding payees...")
-    amazon_needs_memo_payee = payees.get_named_payee(settings.ynab_payee_name_to_be_processed)
     amazon_with_memo_payee = payees.get_named_payee(settings.ynab_payee_name_processing_completed)
-    if amazon_needs_memo_payee is None:
-        raise YnabSetupError(
-            f"Payee '{settings.ynab_payee_name_to_be_processed}' not found in YNAB."
-        )
     if amazon_with_memo_payee is None:
         raise YnabSetupError(
             f"Payee '{settings.ynab_payee_name_processing_completed}' not found in YNAB."
         )
 
-    ynab_transactions = TempYnabTransactions.get_by_payee(
-        amazon_needs_memo_payee, configuration=configuration, budget_id=budget_id
-    )
-
-    ynab_transactions.filter(lambda t: not t.approved)
+    if settings.match_empty_memo:
+        # Match transactions with empty memo instead of special payee
+        ynab_transactions = TempYnabTransactions.get_by_payee(
+            amazon_with_memo_payee, configuration=configuration, budget_id=budget_id
+        )
+        ynab_transactions.filter(lambda t: not t.approved and not t.memo)
+    else:
+        # Original behavior: require "Amazon - Needs Memo" payee
+        amazon_needs_memo_payee = payees.get_named_payee(settings.ynab_payee_name_to_be_processed)
+        if amazon_needs_memo_payee is None:
+            raise YnabSetupError(
+                f"Payee '{settings.ynab_payee_name_to_be_processed}' not found in YNAB."
+            )
+        ynab_transactions = TempYnabTransactions.get_by_payee(
+            amazon_needs_memo_payee, configuration=configuration, budget_id=budget_id
+        )
+        ynab_transactions.filter(lambda t: not t.approved)
 
     return ynab_transactions, amazon_with_memo_payee
 

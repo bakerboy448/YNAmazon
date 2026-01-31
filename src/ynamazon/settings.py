@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     use_ai_summarization: bool = False
     suppress_partial_order_warning: bool = False
     amazon_debug: bool = False
+    match_empty_memo: bool = False  # Match transactions with empty memo instead of special payee
 
     @model_validator(mode="after")
     def validate_settings(self) -> "Settings":
