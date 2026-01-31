@@ -1,8 +1,10 @@
+from difflib import unified_diff
 from typing import TYPE_CHECKING
 
 from loguru import logger
 from rich.console import Console
 from rich.prompt import Confirm
+from rich.syntax import Syntax
 
 from ynamazon.amazon_transactions import (
     AmazonConfig,
@@ -118,9 +120,22 @@ def process_transactions(  # noqa: C901
 
         if dry_run:
             console.print("[bold yellow]DRY RUN: Would update this transaction[/]")
-            console.print(f"[cyan]Current memo:[/] {ynab_tran.memo or '(empty)'}")
-            console.print(f"[green]Proposed memo:[/] {memo_text}")
-            console.print("\n")
+            current = ynab_tran.memo or ""
+            if current != memo_text:
+                diff = unified_diff(
+                    current.splitlines(keepends=True),
+                    memo_text.splitlines(keepends=True),
+                    fromfile="current",
+                    tofile="proposed",
+                )
+                diff_text = "".join(diff)
+                if diff_text:
+                    console.print(Syntax(diff_text, "diff", theme="monokai"))
+                else:
+                    console.print("[dim]No changes[/]")
+            else:
+                console.print("[dim]No changes needed[/]")
+            console.print()
             continue
 
         update_transaction = Confirm.ask(

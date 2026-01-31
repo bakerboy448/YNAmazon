@@ -29,10 +29,16 @@ class SecretBudgetId(SecretStr):
 
 
 class Settings(BaseSettings):
-    """Settings configuration for project."""
+    """Settings configuration for project.
+
+    Config loading order (later overrides earlier):
+    1. /app/config/.env (Docker default)
+    2. .env (current directory)
+    3. Environment variables
+    """
 
     model_config: SettingsConfigDict = SettingsConfigDict(  # pyright: ignore[reportIncompatibleVariableOverride]
-        env_file=".env",
+        env_file=["/app/config/.env", ".env"],
         env_file_encoding="utf-8",
         env_prefix="",
         extra="ignore",

@@ -1,0 +1,21 @@
+services:
+  ynamazon:
+    image: ghcr.io/bakerboy448/ynamazon:latest
+    # build: .  # Uncomment to build locally
+    environment:
+      - YNAB_API_KEY=${YNAB_API_KEY}
+      - YNAB_BUDGET_ID=${YNAB_BUDGET_ID}
+      - AMAZON_USER=${AMAZON_USER}
+      - AMAZON_PASSWORD=${AMAZON_PASSWORD}
+      - AMAZON_OTP_SECRET_KEY=${AMAZON_OTP_SECRET_KEY:-}
+      - MATCH_EMPTY_MEMO=true
+      - AMAZON_FULL_DETAILS=true
+    volumes:
+      - ./config:/app/config:ro
+      - ynamazon-cache:/home/ynamazon/.cache/ynamazon
+    # Override default command for different modes:
+    # command: ["ynamazon", "--dry-run"]
+    # command: ["ynamazon", "--force", "--dry-run"]
+
+volumes:
+  ynamazon-cache:
