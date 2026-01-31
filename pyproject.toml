@@ -68,11 +68,10 @@ ignore_missing_imports = true
 known_first_party = ["ynamazon"]
 
 [tool.semantic_release]
-version_toml = ["pyproject.toml:project.version"]
 version_variables = ["src/ynamazon/__init__.py:__version__"]
 branch = "main"
 commit_message = "chore(release): {version}"
-build_command = false
+build_command = ""
 
 [tool.semantic_release.changelog]
 template_dir = ".github/templates"
