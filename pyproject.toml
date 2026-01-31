@@ -39,6 +39,7 @@ dev = [
     "deptry>=0.23.0",
     "mypy>=1.15.0",
     "pre-commit>=4.2.0",
+    "pyright>=1.1.390",
     "ruff>=0.11.4",
     "types-requests>=2.32.0.20250328",
 ]
@@ -65,3 +66,19 @@ ignore_missing_imports = true
 
 [tool.deptry]
 known_first_party = ["ynamazon"]
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+version_variables = ["src/ynamazon/__init__.py:__version__"]
+branch = "main"
+commit_message = "chore(release): {version}"
+build_command = "uv build"
+
+[tool.semantic_release.changelog]
+template_dir = ".github/templates"
+changelog_file = "CHANGELOG.md"
+
+[tool.semantic_release.commit_parser_options]
+allowed_tags = ["feat", "fix", "perf", "refactor", "docs", "style", "test", "build", "ci", "chore"]
+minor_tags = ["feat"]
+patch_tags = ["fix", "perf", "refactor"]
