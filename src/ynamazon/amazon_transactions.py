@@ -1,7 +1,7 @@
 # pyright: reportDeprecated=false
 import os
-import tempfile
 from datetime import date
+from pathlib import Path
 from decimal import Decimal
 from typing import Annotated, Union  # ,  Self  # not available python <3.11
 
@@ -121,11 +121,7 @@ class AmazonTransactionRetriever:
     @Cache(
         validity_duration="2h",
         enable_cache_arg_name="use_cache",
-        cache_path=os.path.join(
-            tempfile.gettempdir(),
-            "ynamazon",
-            "amazon_transactions_get_amazon_transactions_{_hash}.pkl",
-        ),
+        cache_path=str(Path.home() / ".cache" / "ynamazon" / "transactions_{_hash}.pkl"),
     )
     def _get_amazon_transactions(
         self,

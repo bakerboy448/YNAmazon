@@ -1,5 +1,8 @@
 FROM python:3.12-slim AS builder
 WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential zlib1g-dev libjpeg-dev && \
+    rm -rf /var/lib/apt/lists/*
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
@@ -9,12 +12,11 @@ RUN uv sync --frozen --no-dev
 FROM python:3.12-slim
 RUN apt-get update && \
     apt-get install -y --no-install-recommends chromium chromium-driver && \
-    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+    rm -rf /var/lib/apt/lists/*
 RUN useradd -m ynamazon
 WORKDIR /app
 COPY --from=builder --chown=ynamazon:ynamazon /app/.venv /app/.venv
 COPY --from=builder --chown=ynamazon:ynamazon /app/src /app/src
-RUN pip install --no-cache-dir /app/src
 ENV PATH="/app/.venv/bin:$PATH" \
     VIRTUAL_ENV="/app/.venv" \
     CHROME_BIN=/usr/bin/chromium \
