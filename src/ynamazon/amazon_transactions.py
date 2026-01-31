@@ -62,11 +62,13 @@ class AmazonConfig(BaseModel):
         password (SecretStr): Amazon account password.
         debug (bool): Enable debug mode.
         transaction_days (int): Number of days to look back for transactions.
+        otp_secret_key (str | None): TOTP secret for auto-generating MFA codes.
     """
 
     username: EmailStr = Field(default_factory=lambda: settings.amazon_user)
     password: SecretStr = Field(default_factory=lambda: settings.amazon_password)
     debug: bool = Field(default_factory=lambda: settings.amazon_debug)
+    otp_secret_key: str | None = Field(default_factory=lambda: settings.amazon_otp_secret_key)
     transaction_days: int = 31
 
     def amazon_session(self) -> AmazonSession:
@@ -76,6 +78,7 @@ class AmazonConfig(BaseModel):
             username=self.username,
             password=self.password.get_secret_value(),
             debug=self.debug,
+            otp_secret_key=self.otp_secret_key,
         )
 
 

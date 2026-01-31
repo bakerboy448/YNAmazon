@@ -58,6 +58,7 @@ class Settings(BaseSettings):
     amazon_debug: bool = False
     amazon_full_details: bool = True  # Fetch full order details (slower but includes item prices)
     match_empty_memo: bool = False  # Match transactions with empty memo instead of special payee
+    amazon_otp_secret_key: str | None = None  # TOTP secret for auto-generating MFA codes
 
     @model_validator(mode="after")
     def validate_settings(self) -> "Settings":
