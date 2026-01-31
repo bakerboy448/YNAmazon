@@ -61,11 +61,14 @@ class AmazonConfig(BaseModel):
     Attributes:
         username (EmailStr): Amazon account email.
         password (SecretStr): Amazon account password.
+        debug (bool): Enable debug mode.
+        transaction_days (int): Number of days to look back for transactions.
     """
 
     username: EmailStr = Field(default_factory=lambda: settings.amazon_user)
     password: SecretStr = Field(default_factory=lambda: settings.amazon_password)
     debug: bool = Field(default_factory=lambda: settings.amazon_debug)
+    transaction_days: int = 31
 
     def amazon_session(self) -> AmazonSession:
         """Creates an Amazon session."""

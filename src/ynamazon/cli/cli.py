@@ -176,7 +176,9 @@ def ynamazon(
         Option(
             "-d",
             "--days",
-            help="Number of days to look back for transactions (default: 31)",
+            help="Number of days to look back for transactions (max: 31, Amazon API limitation)",
+            min=1,
+            max=31,
         ),
     ] = 31,
     dry_run: Annotated[
@@ -187,6 +189,14 @@ def ynamazon(
             is_flag=True,
         ),
     ] = False,
+    force: Annotated[
+        bool,
+        Option(
+            "--force",
+            help="Process all matching transactions, even those with existing memos",
+            is_flag=True,
+        ),
+    ] = False,
 ) -> None:
     """
     [bold cyan](Default) Match YNAB transactions to Amazon Transactions and optionally update YNAB Memos.[/]
@@ -194,18 +204,18 @@ def ynamazon(
     [yellow i]All required arguments will use defaults in .env file if not provided.[/]
     """
     # Store the flags in the Typer context for use in commands
-    ctx.obj = {"force_refresh_amazon": force_refresh_amazon, "dry_run": dry_run}
+    ctx.obj = {"force_refresh_amazon": force_refresh_amazon, "dry_run": dry_run, "force": force}
 
     process_transactions(
         amazon_config=AmazonConfig(
             username=amazon_user,
             password=amazon_password,
-            force_refresh_amazon=ctx.obj["force_refresh_amazon"],
             transaction_days=days,
         ),  # type: ignore[arg-type]
         ynab_config=Configuration(access_token=ynab_api_key),
         budget_id=ynab_budget_id,
         dry_run=dry_run,
+        force=force,
     )
 
 

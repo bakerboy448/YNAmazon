@@ -12,7 +12,6 @@ from ynamazon.amazon_transactions import (
 )
 from ynamazon.exceptions import YnabSetupError
 from ynamazon.settings import settings
-from ynamazon.ynab_memo import process_memo
 from ynamazon.ynab_transactions import default_configuration as ynab_configuration
 from ynamazon.ynab_transactions import (
     get_ynab_transactions,
@@ -52,6 +51,7 @@ def process_transactions(  # noqa: C901
     budget_id: str | None = None,
     force_refresh_amazon: bool = False,
     dry_run: bool = False,
+    force: bool = False,
 ) -> None:
     """Match YNAB transactions to Amazon Transactions and optionally update YNAB Memos."""
     amazon_config = amazon_config or AmazonConfig()
@@ -63,9 +63,12 @@ def process_transactions(  # noqa: C901
     if dry_run:
         console.print("[bold yellow]DRY RUN MODE - No changes will be made[/]")
 
+    # Get transaction days from amazon config
+    days = amazon_config.transaction_days if amazon_config else 31
+
     try:
         ynab_trans, amazon_with_memo_payee = get_ynab_transactions(
-            configuration=ynab_config, budget_id=budget_id
+            configuration=ynab_config, budget_id=budget_id, force=force, days=days
         )
     except YnabSetupError:
         console.print("[bold red]No matching Transactions found in YNAB. Exiting.[/]")
@@ -120,9 +123,8 @@ def process_transactions(  # noqa: C901
         # Only use the AI processing if OpenAI is installed
         if "process_memo" in globals():
             memo = process_memo(str(memo))
-
-        console.print("[bold u green]Processed Memo:[/]")
-        console.print(memo)
+        else:
+            memo = str(memo)
 
         if amazon_tran.completed_date != ynab_tran.var_date:
             console.print(

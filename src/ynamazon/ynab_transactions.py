@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, TypeVar, Union
 
@@ -131,6 +132,8 @@ def get_transactions_by_payee(
 def get_ynab_transactions(
     configuration: Union[Configuration, None] = None,
     budget_id: Union[str, None] = None,
+    force: bool = False,
+    days: int = 31,
 ) -> tuple[TempYnabTransactions, "Payee"]:
     """Returns a tuple of YNAB transactions and the payee.
 
@@ -156,12 +159,19 @@ def get_ynab_transactions(
             f"Payee '{settings.ynab_payee_name_processing_completed}' not found in YNAB."
         )
 
-    if settings.match_empty_memo:
-        # Match transactions with empty memo instead of special payee
+    min_date = date.today() - timedelta(days=days)
+
+    if settings.match_empty_memo or force:
+        # Match transactions by "Amazon" payee
         ynab_transactions = TempYnabTransactions.get_by_payee(
             amazon_with_memo_payee, configuration=configuration, budget_id=budget_id
         )
-        ynab_transactions.filter(lambda t: not t.approved and not t.memo)
+        if force:
+            # Force mode: match all Amazon transactions within date range
+            ynab_transactions.filter(lambda t: t.var_date >= min_date)
+        else:
+            # Normal mode: only unapproved with empty memo within date range
+            ynab_transactions.filter(lambda t: not t.approved and not t.memo and t.var_date >= min_date)
     else:
         # Original behavior: require "Amazon - Needs Memo" payee
         amazon_needs_memo_payee = payees.get_named_payee(settings.ynab_payee_name_to_be_processed)
@@ -172,7 +182,7 @@ def get_ynab_transactions(
         ynab_transactions = TempYnabTransactions.get_by_payee(
             amazon_needs_memo_payee, configuration=configuration, budget_id=budget_id
         )
-        ynab_transactions.filter(lambda t: not t.approved)
+        ynab_transactions.filter(lambda t: not t.approved and t.var_date >= min_date)
 
     return ynab_transactions, amazon_with_memo_payee
 
