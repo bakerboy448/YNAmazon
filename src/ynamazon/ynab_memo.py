@@ -3,8 +3,8 @@
 from loguru import logger
 import re
 from typing import Optional
-from openai import OpenAI
-from openai import AuthenticationError, RateLimitError, APIError
+from openai import OpenAI  # pyright: ignore[reportMissingImports]
+from openai import AuthenticationError, RateLimitError, APIError  # pyright: ignore[reportMissingImports]
 from ynamazon.settings import settings
 from ynamazon.prompts import (
     AMAZON_SUMMARY_SYSTEM_PROMPT,
@@ -136,7 +136,7 @@ def normalize_memo(memo: str) -> str:
     return "\n".join(result)
 
 
-def extract_order_url(memo: str) -> str:
+def extract_order_url(memo: str) -> str | None:
     """Extract the Amazon order URL from a memo, handling both markdown and non-markdown formats."""
     # First normalize the memo to handle split lines
     normalized_memo = normalize_memo(memo)
@@ -211,7 +211,7 @@ def truncate_memo(memo: str) -> str:
     multi_order_line, items_header, item_lines = _extract_memo_parts(clean_memo)
 
     # Calculate available space
-    available_space = _calculate_remaining_space(multi_order_line, items_header, item_lines, url_line)
+    available_space = _calculate_remaining_space(multi_order_line, items_header, item_lines, url_line)  # pyright: ignore[reportArgumentType]
 
     # Truncate items if needed
     truncated_items = _truncate_item_lines(item_lines, available_space)

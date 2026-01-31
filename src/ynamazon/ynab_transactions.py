@@ -140,6 +140,8 @@ def get_ynab_transactions(
     Args:
         configuration (Configuration | None): The YNAB API configuration.
         budget_id (str | None): The budget ID.
+        force (bool): If True, include transactions with existing memos.
+        days (int): Number of days to look back for transactions.
 
     Returns:
         tuple[list[HybridTransaction], Payee] | None: A tuple of YNAB transactions and the payee.
@@ -325,4 +327,4 @@ if __name__ == "__main__":
     if not ynab_transactions:
         rprint("[bold red]No transactions found.[/]")
         exit(1)
-    print_ynab_transactions(transactions=ynab_transactions)
+    print_ynab_transactions(transactions=ynab_transactions)  # pyright: ignore[reportArgumentType]

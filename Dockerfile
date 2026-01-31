@@ -15,6 +15,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 RUN useradd -m ynamazon
 WORKDIR /app
+RUN mkdir -p /app/output /app/config && chown -R ynamazon:ynamazon /app
 COPY --from=builder --chown=ynamazon:ynamazon /app/.venv /app/.venv
 COPY --from=builder --chown=ynamazon:ynamazon /app/src /app/src
 ENV PATH="/app/.venv/bin:$PATH" \

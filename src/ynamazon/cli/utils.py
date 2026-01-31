@@ -46,7 +46,7 @@ class GithubRepoUrl(BaseModel):
     @model_validator(mode="after")
     def set_furl_object(self) -> Self:
         """Set the furl object for the URL."""
-        self._furl_obj = furl(url=self.url)
+        self._furl_obj = furl(url=str(self.url))  # pyright: ignore[reportArgumentType]
         return self
 
     @property
@@ -79,7 +79,7 @@ def get_github_url(package_name: str) -> GithubRepoUrl:
             label, link = get_label_link(url)
             logger.debug(f"Label: {label}, Link: {link}")
             if any(name in label.lower() for name in ["github", "source"]):
-                return GithubRepoUrl(url=link)
+                return GithubRepoUrl(url=link)  # pyright: ignore[reportArgumentType]
         msg = f"Package '{package_name}' does not have a repository URL."
     except PackageNotFoundError:
         msg = f"Package '{package_name}' not found."

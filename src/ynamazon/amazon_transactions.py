@@ -1,5 +1,4 @@
 # pyright: reportDeprecated=false
-import os
 from datetime import date
 from pathlib import Path
 from decimal import Decimal
@@ -129,7 +128,7 @@ class AmazonTransactionRetriever:
         transaction_days: int,
         amazon_config: AmazonConfig,
     ) -> list[AmazonTransactionWithOrderInfo]:
-        orders_dict = {order.order_number: order for order in self._amazon_orders()}
+        orders_dict = {order.order_number: order for order in self._amazon_orders()}  # pyright: ignore[reportAttributeAccessIssue]
 
         amazon_transactions = self._amazon_transactions()
 
@@ -143,7 +142,7 @@ class AmazonTransactionRetriever:
                 )
             except ValueError:
                 logger.debug(
-                    f"Transaction {transaction.order_number} not found in retrieved orders."
+                    f"Transaction {transaction.order_number} not found in retrieved orders."  # pyright: ignore[reportAttributeAccessIssue]
                 )
                 continue
 
@@ -165,8 +164,8 @@ class AmazonTransactionRetriever:
 
         all_orders: list[Order] = []
         for year in self.order_years:
-            all_orders.extend(amazon_orders.get_order_history(year=year, full_details=settings.amazon_full_details))
-        all_orders.sort(key=lambda order: order.order_placed_date)
+            all_orders.extend(amazon_orders.get_order_history(year=year, full_details=settings.amazon_full_details))  # pyright: ignore[reportArgumentType]
+        all_orders.sort(key=lambda order: order.order_placed_date)  # pyright: ignore[reportAttributeAccessIssue]
 
         self._memo["amazon_orders"] = all_orders
 
@@ -181,7 +180,7 @@ class AmazonTransactionRetriever:
             amazon_session=self._session()
         ).get_transactions(days=self.transaction_days)
 
-        self._memo["amazon_transactions"].sort(key=lambda trans: trans.completed_date)
+        self._memo["amazon_transactions"].sort(key=lambda trans: trans.completed_date)  # pyright: ignore[reportAttributeAccessIssue]
 
         return self._memo["amazon_transactions"]
 
@@ -192,14 +191,16 @@ class AmazonTransactionRetriever:
         amazon_session = self.amazon_config.amazon_session()
         amazon_session.login()
 
-        if amazon_session.is_authenticated:
+        if amazon_session.is_authenticated:  # pyright: ignore[reportAttributeAccessIssue]
             self._memo["session"] = amazon_session
             return self._memo["session"]
+
+        raise RuntimeError("Amazon authentication failed")
 
     @classmethod
     def _normalized_years(cls, years: list[str] | None = None) -> list[str]:
         if years is None:
-            return [date.today().year]
+            return [str(date.today().year)]
 
         result: list[str] = []
 

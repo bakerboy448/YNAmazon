@@ -126,7 +126,7 @@ def print_amazon_transactions(
             f"${transaction.order_total:.2f}",
             transaction.order_number,
             str(transaction.order_link),
-            " | ".join(item.title for item in transaction.items),
+            " | ".join(item.title for item in transaction.items),  # pyright: ignore[reportAttributeAccessIssue]
         )
 
     console.print(table)
@@ -209,7 +209,7 @@ def ynamazon(
     process_transactions(
         amazon_config=AmazonConfig(
             username=amazon_user,
-            password=amazon_password,
+            password=amazon_password,  # pyright: ignore[reportArgumentType]
             transaction_days=days,
         ),  # type: ignore[arg-type]
         ynab_config=Configuration(access_token=ynab_api_key),

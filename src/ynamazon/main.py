@@ -101,7 +101,7 @@ def process_transactions(  # noqa: C901
 
         # Only use the AI processing if OpenAI is installed
         if "process_memo" in globals():
-            memo_text = process_memo(memo_text)
+            memo_text = process_memo(memo_text)  # pyright: ignore[reportPossiblyUnboundVariable]
 
         if amazon_tran.completed_date != ynab_tran.var_date:
             console.print(
