@@ -65,6 +65,7 @@ MATCH_EMPTY_MEMO=true              # Match "Amazon" payee with empty memo (defau
 AMAZON_FULL_DETAILS=true           # Fetch item prices (slower, default: true)
 AMAZON_DEBUG=false                 # Enable debug logging
 YNAB_PAYEE_NAME_PROCESSING_COMPLETED=Amazon  # Payee name for processed transactions
+YNAB_APPROVED_STATUSES=["approved","unapproved"]  # Which approval statuses to match (default: both)
 ```
 
 Config loading order (later overrides earlier):

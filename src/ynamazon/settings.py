@@ -1,4 +1,4 @@
-from typing import override
+from typing import Literal, override
 
 from pydantic import EmailStr, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     amazon_full_details: bool = True  # Fetch full order details (slower but includes item prices)
     match_empty_memo: bool = False  # Match transactions with empty memo instead of special payee
     amazon_otp_secret_key: str | None = None  # TOTP secret for auto-generating MFA codes
+    ynab_approved_statuses: list[Literal["approved", "unapproved"]] = ["approved", "unapproved"]  # Which approval statuses to match
 
     @model_validator(mode="after")
     def validate_settings(self) -> "Settings":

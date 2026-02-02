@@ -172,8 +172,15 @@ def get_ynab_transactions(
             # Force mode: match all Amazon transactions within date range
             ynab_transactions.filter(lambda t: t.var_date >= min_date)
         else:
-            # Normal mode: only unapproved with empty memo within date range
-            ynab_transactions.filter(lambda t: not t.approved and not t.memo and t.var_date >= min_date)
+            # Normal mode: empty memo within date range, filtered by approved status setting
+            def matches_filter(t: TempYnabTransaction) -> bool:
+                if t.memo or t.var_date < min_date:
+                    return False
+                # Check if transaction's approved status matches allowed statuses
+                status = "approved" if t.approved else "unapproved"
+                return status in settings.ynab_approved_statuses
+
+            ynab_transactions.filter(matches_filter)
     else:
         # Original behavior: require "Amazon - Needs Memo" payee
         amazon_needs_memo_payee = payees.get_named_payee(settings.ynab_payee_name_to_be_processed)
