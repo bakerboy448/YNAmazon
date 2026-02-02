@@ -275,6 +275,7 @@ def daemon(
                 budget_id=settings.ynab_budget_id.get_secret_value(),
                 dry_run=dry_run,
                 force=force,
+                non_interactive=True,  # Daemon mode is always non-interactive
             )
             logger.info("Sync completed successfully")
         except Exception as e:

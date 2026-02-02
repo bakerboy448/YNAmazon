@@ -68,6 +68,7 @@ YNAB_PAYEE_NAME_PROCESSING_COMPLETED=Amazon  # Payee name for processed transact
 YNAB_APPROVED_STATUSES=["approved","unapproved"]  # Which approval statuses to match (default: both)
 AUTO_ACCEPT_DATE_MISMATCH=true     # Auto-accept date mismatches without prompting (default: false)
 DATE_MISMATCH_TOLERANCE_DAYS=2     # Allow date differences up to N days (default: 0 = exact match)
+NON_INTERACTIVE=true               # Skip all confirmation prompts (default: false, for daemon mode)
 ```
 
 Config loading order (later overrides earlier):

@@ -37,11 +37,14 @@ def process_transactions(  # noqa: C901
     force_refresh_amazon: bool = False,
     dry_run: bool = False,
     force: bool = False,
+    non_interactive: bool | None = None,
 ) -> None:
     """Match YNAB transactions to Amazon Transactions and optionally update YNAB Memos."""
     amazon_config = amazon_config or AmazonConfig()
     ynab_config = ynab_config or ynab_configuration
     budget_id = budget_id or settings.ynab_budget_id.get_secret_value()
+    # Use passed value or fall back to settings
+    non_interactive = non_interactive if non_interactive is not None else settings.non_interactive
 
     console = Console()
 
@@ -115,8 +118,8 @@ def process_transactions(  # noqa: C901
             if dates_within_tolerance:
                 console.print(f"[green]Within tolerance ({settings.date_mismatch_tolerance_days} days) - auto-accepting[/]")
                 continue_match = True
-            elif settings.auto_accept_date_mismatch:
-                console.print("[yellow]Auto-accepting date mismatch (AUTO_ACCEPT_DATE_MISMATCH=true)[/]")
+            elif settings.auto_accept_date_mismatch or non_interactive:
+                console.print("[yellow]Auto-accepting date mismatch (non-interactive mode)[/]")
                 continue_match = True
             else:
                 continue_match = Confirm.ask(
@@ -150,9 +153,12 @@ def process_transactions(  # noqa: C901
             console.print()
             continue
 
-        update_transaction = Confirm.ask(
-            "[bold cyan]Update YNAB transaction memo?[/]", console=console
-        )
+        if non_interactive:
+            update_transaction = True
+        else:
+            update_transaction = Confirm.ask(
+                "[bold cyan]Update YNAB transaction memo?[/]", console=console
+            )
         if not update_transaction:
             console.print("[yellow]Skipping YNAB transaction update...[/]\n\n")
             console.print("[cyan i]Memo Preview[/]:")
