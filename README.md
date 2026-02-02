@@ -66,6 +66,8 @@ AMAZON_FULL_DETAILS=true           # Fetch item prices (slower, default: true)
 AMAZON_DEBUG=false                 # Enable debug logging
 YNAB_PAYEE_NAME_PROCESSING_COMPLETED=Amazon  # Payee name for processed transactions
 YNAB_APPROVED_STATUSES=["approved","unapproved"]  # Which approval statuses to match (default: both)
+AUTO_ACCEPT_DATE_MISMATCH=true     # Auto-accept date mismatches without prompting (default: false)
+DATE_MISMATCH_TOLERANCE_DAYS=2     # Allow date differences up to N days (default: 0 = exact match)
 ```
 
 Config loading order (later overrides earlier):

@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     match_empty_memo: bool = False  # Match transactions with empty memo instead of special payee
     amazon_otp_secret_key: str | None = None  # TOTP secret for auto-generating MFA codes
     ynab_approved_statuses: list[Literal["approved", "unapproved"]] = ["approved", "unapproved"]  # Which approval statuses to match
+    auto_accept_date_mismatch: bool = False  # Auto-accept date mismatches without prompting (useful for daemon mode)
+    date_mismatch_tolerance_days: int = 0  # Allow date differences up to N days (0 = exact match required)
 
     @model_validator(mode="after")
     def validate_settings(self) -> "Settings":

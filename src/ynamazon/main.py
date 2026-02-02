@@ -1,3 +1,4 @@
+from datetime import timedelta
 from difflib import unified_diff
 from typing import TYPE_CHECKING
 
@@ -103,14 +104,25 @@ def process_transactions(  # noqa: C901
         if "process_memo" in globals():
             memo_text = process_memo(memo_text)  # pyright: ignore[reportPossiblyUnboundVariable]
 
+        # Check if dates match within tolerance
+        date_diff = abs((amazon_tran.completed_date - ynab_tran.var_date).days)
+        dates_within_tolerance = date_diff <= settings.date_mismatch_tolerance_days
+
         if amazon_tran.completed_date != ynab_tran.var_date:
             console.print(
-                f"[yellow]**** The dates don't match! YNAB: {ynab_tran.var_date} Amazon: {amazon_tran.completed_date}[/]"
+                f"[yellow]**** The dates don't match! YNAB: {ynab_tran.var_date} Amazon: {amazon_tran.completed_date} (diff: {date_diff} days)[/]"
             )
-            continue_match = Confirm.ask(
-                "[bold red]Continue matching this transaction anyway?[/]",
-                console=console,
-            )
+            if dates_within_tolerance:
+                console.print(f"[green]Within tolerance ({settings.date_mismatch_tolerance_days} days) - auto-accepting[/]")
+                continue_match = True
+            elif settings.auto_accept_date_mismatch:
+                console.print("[yellow]Auto-accepting date mismatch (AUTO_ACCEPT_DATE_MISMATCH=true)[/]")
+                continue_match = True
+            else:
+                continue_match = Confirm.ask(
+                    "[bold red]Continue matching this transaction anyway?[/]",
+                    console=console,
+                )
             if not continue_match:
                 console.print("[yellow]Skipping this transaction...[/]")
                 continue
