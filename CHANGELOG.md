@@ -1,6 +1,18 @@
 # CHANGELOG
 
 
+## v0.3.0 (2026-02-02)
+
+### Features
+
+- Add configurable approved status filtering
+  ([`f499471`](https://github.com/bakerboy448/YNAmazon/commit/f499471556431b271e6455a6374759fd9ef00402))
+
+- Remove hardcoded `not t.approved` requirement that filtered out approved transactions - Add
+  YNAB_APPROVED_STATUSES setting to control which approval statuses to match - Default to matching
+  both approved and unapproved transactions - Update README with new configuration option
+
+
 ## v0.2.1 (2026-01-31)
 
 ### Bug Fixes
