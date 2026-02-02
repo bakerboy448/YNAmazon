@@ -1,6 +1,18 @@
 # CHANGELOG
 
 
+## v0.4.0 (2026-02-02)
+
+### Features
+
+- Add date mismatch tolerance and auto-accept settings
+  ([`2ea17cd`](https://github.com/bakerboy448/YNAmazon/commit/2ea17cd768214c4a4937b0d699ebfd341bc04b5d))
+
+- Add DATE_MISMATCH_TOLERANCE_DAYS setting (default: 0) to auto-accept date differences within N
+  days - Add AUTO_ACCEPT_DATE_MISMATCH setting for daemon/non-interactive mode - Show date
+  difference in days when mismatch occurs - Update README with new configuration options
+
+
 ## v0.3.0 (2026-02-02)
 
 ### Features
