@@ -1,6 +1,18 @@
 # CHANGELOG
 
 
+## v0.5.0 (2026-02-02)
+
+### Features
+
+- Daemon mode automatically non-interactive
+  ([`6b4b1af`](https://github.com/bakerboy448/YNAmazon/commit/6b4b1af6a3874bc6f4cc2358cae8e984219c02d1))
+
+- Add non_interactive parameter to process_transactions() - Daemon mode passes non_interactive=True
+  automatically - Settings NON_INTERACTIVE still works as fallback for manual runs - Consolidate
+  date mismatch auto-accept logic
+
+
 ## v0.4.0 (2026-02-02)
 
 ### Features
