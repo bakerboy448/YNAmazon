@@ -1,4 +1,3 @@
-from datetime import timedelta
 from difflib import unified_diff
 from typing import TYPE_CHECKING
 
@@ -116,7 +115,9 @@ def process_transactions(  # noqa: C901
                 f"[yellow]**** The dates don't match! YNAB: {ynab_tran.var_date} Amazon: {amazon_tran.completed_date} (diff: {date_diff} days)[/]"
             )
             if dates_within_tolerance:
-                console.print(f"[green]Within tolerance ({settings.date_mismatch_tolerance_days} days) - auto-accepting[/]")
+                console.print(
+                    f"[green]Within tolerance ({settings.date_mismatch_tolerance_days} days) - auto-accepting[/]"
+                )
                 continue_match = True
             elif settings.auto_accept_date_mismatch or non_interactive:
                 console.print("[yellow]Auto-accepting date mismatch (non-interactive mode)[/]")
