@@ -223,6 +223,59 @@ def ynamazon(
     )
 
 
+def _run_daemon_sync(dry_run: bool, force: bool) -> None:
+    """Execute a single sync run."""
+    logger.info(f"Starting scheduled sync at {datetime.now()}")
+    try:
+        process_transactions(
+            amazon_config=AmazonConfig(
+                username=settings.amazon_user,
+                password=settings.amazon_password.get_secret_value(),
+                transaction_days=31,
+            ),
+            ynab_config=Configuration(
+                access_token=settings.ynab_api_key.get_secret_value()
+            ),
+            budget_id=settings.ynab_budget_id.get_secret_value(),
+            dry_run=dry_run,
+            force=force,
+            non_interactive=True,
+        )
+        logger.info("Sync completed successfully")
+    except Exception as e:
+        logger.exception(f"Sync failed: {e}")
+
+
+def _get_next_window_run(parsed_windows: list[tuple[int, int]]) -> datetime:
+    """Calculate next random run time within a window."""
+    import random
+    from datetime import timedelta
+
+    now = datetime.now()
+    candidates = []
+
+    for start_hour, end_hour in parsed_windows:
+        for day_offset in range(2):
+            window_start = now.replace(hour=start_hour, minute=0, second=0, microsecond=0)
+            window_start += timedelta(days=day_offset)
+
+            if window_start > now:
+                random_minutes = random.randint(0, (end_hour - start_hour) * 60 - 1)
+                run_time = window_start + timedelta(minutes=random_minutes)
+                candidates.append(run_time)
+
+    return min(candidates) if candidates else now
+
+
+def _parse_windows(windows: str) -> list[tuple[int, int]]:
+    """Parse window string like '6-8,18-20' into list of (start, end) tuples."""
+    parsed: list[tuple[int, int]] = []
+    for w in windows.split(","):
+        start, end = w.strip().split("-")
+        parsed.append((int(start), int(end)))
+    return parsed
+
+
 @cli.command()
 def daemon(
     interval_hours: Annotated[
@@ -267,82 +320,27 @@ def daemon(
     Or use --windows for random times within specific hour ranges.
     [yellow i]Uses settings from .env file.[/]
     """
-    import random
-
-    def run_sync() -> None:
-        """Execute a single sync run."""
-        logger.info(f"Starting scheduled sync at {datetime.now()}")
-        try:
-            process_transactions(
-                amazon_config=AmazonConfig(
-                    username=settings.amazon_user,
-                    password=settings.amazon_password.get_secret_value(),
-                    transaction_days=31,
-                ),
-                ynab_config=Configuration(
-                    access_token=settings.ynab_api_key.get_secret_value()
-                ),
-                budget_id=settings.ynab_budget_id.get_secret_value(),
-                dry_run=dry_run,
-                force=force,
-                non_interactive=True,  # Daemon mode is always non-interactive
-            )
-            logger.info("Sync completed successfully")
-        except Exception as e:
-            logger.exception(f"Sync failed: {e}")
-
-    def get_next_window_run(parsed_windows: list[tuple[int, int]]) -> datetime:
-        """Calculate next random run time within a window."""
-        now = datetime.now()
-        candidates = []
-
-        for start_hour, end_hour in parsed_windows:
-            for day_offset in range(2):
-                window_start = now.replace(
-                    hour=start_hour, minute=0, second=0, microsecond=0
-                )
-                if day_offset:
-                    window_start = window_start.replace(day=window_start.day + 1)
-
-                if window_start > now:
-                    random_minutes = random.randint(0, (end_hour - start_hour) * 60 - 1)
-                    run_time = window_start.replace(
-                        minute=random_minutes % 60,
-                        hour=start_hour + random_minutes // 60,
-                    )
-                    candidates.append(run_time)
-
-        return min(candidates) if candidates else now
+    run_sync = lambda: _run_daemon_sync(dry_run, force)  # noqa: E731
 
     if windows:
-        parsed_windows: list[tuple[int, int]] = []
-        for w in windows.split(","):
-            start, end = w.strip().split("-")
-            parsed_windows.append((int(start), int(end)))
-
+        parsed_windows = _parse_windows(windows)
         rprint(f"[bold cyan]Starting YNAmazon daemon (windows: {windows})[/]")
         logger.info(f"Daemon starting with time windows: {windows}")
-
         run_sync()
 
         while True:
-            next_run = get_next_window_run(parsed_windows)
+            next_run = _get_next_window_run(parsed_windows)
             sleep_seconds = (next_run - datetime.now()).total_seconds()
             logger.info(f"Next run scheduled for {next_run} (sleeping {sleep_seconds/3600:.1f}h)")
             rprint(f"[dim]Next run: {next_run}[/]")
-
             if sleep_seconds > 0:
                 time.sleep(sleep_seconds)
-
             run_sync()
     else:
         rprint(f"[bold cyan]Starting YNAmazon daemon (interval: {interval_hours}h)[/]")
         logger.info(f"Daemon starting with {interval_hours}h interval")
-
         run_sync()
-
         schedule.every(interval_hours).hours.do(run_sync)
-
         next_run = datetime.now().timestamp() + (interval_hours * 3600)
         logger.info(f"Next run scheduled for {datetime.fromtimestamp(next_run)}")
 
