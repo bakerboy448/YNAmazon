@@ -1,6 +1,24 @@
 # CHANGELOG
 
 
+## v0.6.0 (2026-02-10)
+
+### Bug Fixes
+
+- Remove unused timedelta import
+  ([`0337909`](https://github.com/bakerboy448/YNAmazon/commit/033790992fe46ca384bbe518676daeabdcfc393c))
+
+### Features
+
+- **daemon**: Add --windows option for random time scheduling
+  ([`37a1859`](https://github.com/bakerboy448/YNAmazon/commit/37a1859e73e603ca81b46408f48e944ed57037cc))
+
+### Refactoring
+
+- **daemon**: Extract helpers to reduce complexity
+  ([`68f0aa9`](https://github.com/bakerboy448/YNAmazon/commit/68f0aa964aa0ac2ce0df40d61a6f154df7774d93))
+
+
 ## v0.5.0 (2026-02-02)
 
 ### Features
