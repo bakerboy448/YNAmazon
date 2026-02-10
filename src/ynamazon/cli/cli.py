@@ -230,11 +230,19 @@ def daemon(
         Option(
             "-i",
             "--interval",
-            help="Hours between runs (min: 12, max: 48)",
+            help="Hours between runs (min: 12, max: 48). Ignored if --windows is set.",
             min=12,
             max=48,
         ),
     ] = 20,
+    windows: Annotated[
+        str | None,
+        Option(
+            "-w",
+            "--windows",
+            help="Time windows to run in, e.g. '6-8,18-20' for 6-8am and 6-8pm. Random time within each window.",
+        ),
+    ] = None,
     dry_run: Annotated[
         bool,
         Option(
@@ -256,8 +264,10 @@ def daemon(
     [bold cyan]Run as a daemon with scheduled execution.[/]
 
     Runs immediately on start, then every [interval] hours.
+    Or use --windows for random times within specific hour ranges.
     [yellow i]Uses settings from .env file.[/]
     """
+    import random
 
     def run_sync() -> None:
         """Execute a single sync run."""
@@ -281,22 +291,64 @@ def daemon(
         except Exception as e:
             logger.exception(f"Sync failed: {e}")
 
-    rprint(f"[bold cyan]Starting YNAmazon daemon (interval: {interval_hours}h)[/]")
-    logger.info(f"Daemon starting with {interval_hours}h interval")
+    def get_next_window_run(parsed_windows: list[tuple[int, int]]) -> datetime:
+        """Calculate next random run time within a window."""
+        now = datetime.now()
+        candidates = []
 
-    # Run immediately on start
-    run_sync()
+        for start_hour, end_hour in parsed_windows:
+            for day_offset in range(2):
+                window_start = now.replace(
+                    hour=start_hour, minute=0, second=0, microsecond=0
+                )
+                if day_offset:
+                    window_start = window_start.replace(day=window_start.day + 1)
 
-    # Schedule recurring runs
-    schedule.every(interval_hours).hours.do(run_sync)
+                if window_start > now:
+                    random_minutes = random.randint(0, (end_hour - start_hour) * 60 - 1)
+                    run_time = window_start.replace(
+                        minute=random_minutes % 60,
+                        hour=start_hour + random_minutes // 60,
+                    )
+                    candidates.append(run_time)
 
-    next_run = datetime.now().timestamp() + (interval_hours * 3600)
-    logger.info(f"Next run scheduled for {datetime.fromtimestamp(next_run)}")
+        return min(candidates) if candidates else now
 
-    # Run the scheduler loop
-    while True:
-        schedule.run_pending()
-        time.sleep(60)  # Check every minute
+    if windows:
+        parsed_windows: list[tuple[int, int]] = []
+        for w in windows.split(","):
+            start, end = w.strip().split("-")
+            parsed_windows.append((int(start), int(end)))
+
+        rprint(f"[bold cyan]Starting YNAmazon daemon (windows: {windows})[/]")
+        logger.info(f"Daemon starting with time windows: {windows}")
+
+        run_sync()
+
+        while True:
+            next_run = get_next_window_run(parsed_windows)
+            sleep_seconds = (next_run - datetime.now()).total_seconds()
+            logger.info(f"Next run scheduled for {next_run} (sleeping {sleep_seconds/3600:.1f}h)")
+            rprint(f"[dim]Next run: {next_run}[/]")
+
+            if sleep_seconds > 0:
+                time.sleep(sleep_seconds)
+
+            run_sync()
+    else:
+        rprint(f"[bold cyan]Starting YNAmazon daemon (interval: {interval_hours}h)[/]")
+        logger.info(f"Daemon starting with {interval_hours}h interval")
+
+        run_sync()
+
+        schedule.every(interval_hours).hours.do(run_sync)
+
+        next_run = datetime.now().timestamp() + (interval_hours * 3600)
+        logger.info(f"Next run scheduled for {datetime.fromtimestamp(next_run)}")
+
+        while True:
+            schedule.run_pending()
+            time.sleep(60)
 
 
 @cli.callback(invoke_without_command=True)
