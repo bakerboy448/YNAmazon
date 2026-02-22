@@ -1,3 +1,4 @@
+from dataclasses import dataclass, field
 from difflib import unified_diff
 from typing import TYPE_CHECKING
 
@@ -28,6 +29,18 @@ if TYPE_CHECKING:
     from ynab.configuration import Configuration
 
 
+@dataclass
+class SyncResult:
+    """Summary of a sync run."""
+
+    ynab_count: int = 0
+    amazon_count: int = 0
+    matched: int = 0
+    skipped: int = 0
+    updated: int = 0
+    errors: list[str] = field(default_factory=list)
+
+
 # TODO: reduce complexity of this function
 def process_transactions(  # noqa: C901
     amazon_config: AmazonConfig | None = None,
@@ -37,7 +50,7 @@ def process_transactions(  # noqa: C901
     dry_run: bool = False,
     force: bool = False,
     non_interactive: bool | None = None,
-) -> None:
+) -> SyncResult:
     """Match YNAB transactions to Amazon Transactions and optionally update YNAB Memos."""
     amazon_config = amazon_config or AmazonConfig()
     ynab_config = ynab_config or ynab_configuration
@@ -45,6 +58,7 @@ def process_transactions(  # noqa: C901
     # Use passed value or fall back to settings
     non_interactive = non_interactive if non_interactive is not None else settings.non_interactive
 
+    result = SyncResult()
     console = Console()
 
     if dry_run:
@@ -59,7 +73,7 @@ def process_transactions(  # noqa: C901
         )
     except YnabSetupError:
         console.print("[bold red]No matching Transactions found in YNAB. Exiting.[/]")
-        return
+        return result
 
     console.print("[cyan]Starting search for Amazon transactions...[/]")
     amazon_trans = AmazonTransactionRetriever(
@@ -67,6 +81,8 @@ def process_transactions(  # noqa: C901
     ).get_amazon_transactions()
 
     console.print(f"[green]{len(amazon_trans)} Amazon transactions retrieved successfully.[/]")
+    result.ynab_count = len(ynab_trans)
+    result.amazon_count = len(amazon_trans)
 
     console.print("[cyan]Starting to look for matching transactions...[/]")
     for ynab_tran in ynab_trans:
@@ -80,9 +96,11 @@ def process_transactions(  # noqa: C901
         )
         if not amazon_tran_index:
             console.print("[bold yellow]**** Could not find a matching Amazon Transaction![/]")
+            result.skipped += 1
             continue
 
         amazon_tran = amazon_trans[amazon_tran_index]
+        result.matched += 1
         console.print(
             f"[green]Matching Amazon Transaction:[/] {amazon_tran.completed_date} ${amazon_tran.transaction_total:.2f}"
         )
@@ -129,6 +147,7 @@ def process_transactions(  # noqa: C901
                 )
             if not continue_match:
                 console.print("[yellow]Skipping this transaction...[/]")
+                result.skipped += 1
                 continue
             else:
                 _ = amazon_trans.pop(amazon_tran_index)
@@ -152,6 +171,7 @@ def process_transactions(  # noqa: C901
             else:
                 console.print("[dim]No changes needed[/]")
             console.print()
+            result.skipped += 1
             continue
 
         if non_interactive:
@@ -164,6 +184,7 @@ def process_transactions(  # noqa: C901
             console.print("[yellow]Skipping YNAB transaction update...[/]\n\n")
             console.print("[cyan i]Memo Preview[/]:")
             console.print(memo_text)
+            result.skipped += 1
             continue
 
         console.print("[green]Updating YNAB transaction memo...[/]")
@@ -173,7 +194,10 @@ def process_transactions(  # noqa: C901
             memo=memo_text,
             payee_id=amazon_with_memo_payee.id,
         )
+        result.updated += 1
         console.print("\n\n")
+
+    return result
 
 
 if __name__ == "__main__":

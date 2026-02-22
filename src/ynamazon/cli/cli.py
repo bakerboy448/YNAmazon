@@ -3,6 +3,7 @@ import time
 from datetime import datetime
 from typing import Annotated
 
+import apprise
 import schedule
 from loguru import logger
 from rich import print as rprint
@@ -223,11 +224,24 @@ def ynamazon(
     )
 
 
+def _send_notification(title: str, message: str, notify_type: apprise.NotifyType = apprise.NotifyType.SUCCESS) -> None:
+    """Send a notification via Apprise. Silently skips if no URLs configured."""
+    if not settings.apprise_urls:
+        return
+    notifier = apprise.Apprise()
+    for url in settings.apprise_urls.split(","):
+        url = url.strip()
+        if url:
+            notifier.add(url)
+    if not notifier.notify(title=title, body=message, notify_type=notify_type):
+        logger.error("Failed to send notification via Apprise")
+
+
 def _run_daemon_sync(dry_run: bool, force: bool) -> None:
     """Execute a single sync run."""
     logger.info(f"Starting scheduled sync at {datetime.now()}")
     try:
-        process_transactions(
+        result = process_transactions(
             amazon_config=AmazonConfig(
                 username=settings.amazon_user,
                 password=settings.amazon_password.get_secret_value(),
@@ -242,8 +256,21 @@ def _run_daemon_sync(dry_run: bool, force: bool) -> None:
             non_interactive=True,
         )
         logger.info("Sync completed successfully")
+        if result.updated > 0:
+            _send_notification(
+                title=f"YNAmazon: Updated {result.updated} transaction{'s' if result.updated != 1 else ''}",
+                message=(
+                    f"YNAB: {result.ynab_count} pending | Amazon: {result.amazon_count} fetched\n"
+                    f"Matched: {result.matched} | Updated: {result.updated} | Skipped: {result.skipped}"
+                ),
+            )
     except Exception as e:
         logger.exception(f"Sync failed: {e}")
+        _send_notification(
+            title="YNAmazon sync failed",
+            message=str(e),
+            notify_type=apprise.NotifyType.WARNING,
+        )
 
 
 def _get_next_window_run(parsed_windows: list[tuple[int, int]]) -> datetime:

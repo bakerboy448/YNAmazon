@@ -63,6 +63,7 @@ class Settings(BaseSettings):
     auto_accept_date_mismatch: bool = False  # Auto-accept date mismatches without prompting (useful for daemon mode)
     date_mismatch_tolerance_days: int = 0  # Allow date differences up to N days (0 = exact match required)
     non_interactive: bool = False  # Skip all confirmation prompts (for daemon/automated mode)
+    apprise_urls: str = ""  # Comma-separated Apprise notification URLs (empty = no notifications)
 
     @model_validator(mode="after")
     def validate_settings(self) -> "Settings":
