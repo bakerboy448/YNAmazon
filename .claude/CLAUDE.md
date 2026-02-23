@@ -1,80 +1,27 @@
-# YNAmazon
+# YNAmazon — YNAB + Amazon Order Annotation
 
-A program to annotate YNAB transactions with Amazon order info.
+Source: `src/ynamazon/`, Tests: `tests/`, CI: `.github/workflows/`
 
-## Quick Reference
-
-| Component | Path |
-|-----------|------|
-| Source code | `src/ynamazon/` |
-| Tests | `tests/` |
-| Docker | `Dockerfile` |
-| CI/CD | `.github/workflows/` |
-| Pre-commit | `.pre-commit-config.yaml` |
-
-## Development
-
+## Dev
 ```bash
-# Install dependencies
-uv sync --dev
-
-# Run locally
-uv run yna --help
-uv run yna ynamazon --dry-run
-
-# Run tests
-uv run pytest
-
-# Lint & format
-uv run ruff check src/ --fix
-uv run ruff format src/
-
-# Type check
-uv run pyright src/
+uv sync --dev          # install deps
+uv run yna --help      # run locally
+uv run pytest          # tests
+uv run ruff check src/ --fix && uv run ruff format src/  # lint
+uv run pyright src/    # typecheck
 ```
 
 ## Docker
+`docker build -t ynamazon:local . && docker run --rm -v /path/.env:/app/config/.env:ro ynamazon:local ynamazon --dry-run`
 
-```bash
-# Build
-docker build -t ynamazon:local .
-
-# Run
-docker run --rm -v /path/to/.env:/app/config/.env:ro ynamazon:local ynamazon --dry-run
-```
-
-## Configuration
-
-Required environment variables:
-- `YNAB_API_KEY` - YNAB API key
-- `YNAB_BUDGET_ID` - YNAB budget ID
-- `AMAZON_USER` - Amazon email
-- `AMAZON_PASSWORD` - Amazon password
-- `AMAZON_OTP_SECRET_KEY` - Amazon TOTP secret (base32)
-
-Optional:
-- `MATCH_EMPTY_MEMO` - Match empty memo transactions (default: true)
-- `AMAZON_FULL_DETAILS` - Fetch item prices (default: true)
-- `AMAZON_DEBUG` - Enable debug logging
+## Config (env vars)
+Required: YNAB_API_KEY, YNAB_BUDGET_ID, AMAZON_USER, AMAZON_PASSWORD, AMAZON_OTP_SECRET_KEY
+Optional: MATCH_EMPTY_MEMO (true), AMAZON_FULL_DETAILS (true), AMAZON_DEBUG
 
 ## CI/CD
-
-- **CI**: Runs on PRs only (lint, typecheck, build)
-- **Release**: Manual dispatch only - creates GitHub release + pushes to GHCR
+CI: PRs only (lint, typecheck, build). Release: manual dispatch → GitHub release + GHCR.
 
 ## Known Issues
-
-1. Lint/typecheck errors exist in upstream code (inherited from original project)
-2. amazonorders library prompts for OTP interactively if not configured
-3. Cache directory permissions need proper setup in Docker
-
-## Architecture
-
-```
-src/ynamazon/
-├── cli/           # Typer CLI commands
-├── amazon_transactions.py  # Amazon API integration
-├── ynab_transactions.py    # YNAB API integration
-├── main.py        # Core transaction matching logic
-└── settings.py    # Pydantic settings
-```
+- Lint/typecheck errors inherited from upstream
+- amazonorders prompts for OTP interactively if not configured
+- Cache dir permissions need setup in Docker
