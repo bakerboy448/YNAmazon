@@ -98,6 +98,58 @@ yna print-ynab
 yna print-amazon
 ```
 
+## Daemon Mode
+
+Run as a long-lived daemon that syncs on a schedule:
+
+```bash
+# Run every 20 hours (default)
+yna daemon
+
+# Custom interval (min 12h, max 48h)
+yna daemon --interval 24
+
+# Use time windows for random scheduling (e.g., 6-8am and 6-8pm)
+yna daemon --windows "6-8,18-20"
+
+# Daemon with dry-run (preview only, no changes)
+yna daemon --dry-run
+```
+
+Daemon mode runs immediately on start, then at the configured interval or within time windows.
+
+### Docker Daemon
+
+```yaml
+services:
+  ynamazon:
+    image: ghcr.io/bakerboy448/ynamazon:latest
+    command: ["yna", "daemon", "--interval", "20"]
+    environment:
+      - YNAB_API_KEY=${YNAB_API_KEY}
+      - YNAB_BUDGET_ID=${YNAB_BUDGET_ID}
+      - AMAZON_USER=${AMAZON_USER}
+      - AMAZON_PASSWORD=${AMAZON_PASSWORD}
+      - NON_INTERACTIVE=true
+    restart: unless-stopped
+```
+
+## Notifications (Apprise)
+
+Get notified when syncs complete or fail using [Apprise](https://github.com/caronc/apprise):
+
+```bash
+# Comma-separated Apprise URLs
+APPRISE_URLS=discord://webhook_id/webhook_token,tgram://bot_token/chat_id
+```
+
+Apprise supports 100+ notification services including Discord, Telegram, Slack, Email, Pushover, and more. See the [Apprise wiki](https://github.com/caronc/apprise/wiki) for URL formats.
+
+Notifications are sent for:
+- Successful syncs (with match/update counts)
+- Failed syncs (with error type)
+- No matches found (warning)
+
 ## Memo Format
 
 Memos are formatted as: `Item A ($XX.XX), Item B ($XX.XX) | Order #XXX-XXXXXXX-XXXXXXX`
