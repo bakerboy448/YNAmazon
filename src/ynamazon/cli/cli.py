@@ -224,7 +224,9 @@ def ynamazon(
     )
 
 
-def _send_notification(title: str, message: str, notify_type: apprise.NotifyType = apprise.NotifyType.SUCCESS) -> None:
+def _send_notification(
+    title: str, message: str, notify_type: apprise.NotifyType = apprise.NotifyType.SUCCESS
+) -> None:
     """Send a notification via Apprise. Silently skips if no URLs configured."""
     apprise_urls_str = settings.apprise_urls.get_secret_value()
     if not apprise_urls_str:
@@ -245,12 +247,10 @@ def _run_daemon_sync(dry_run: bool, force: bool) -> None:
         result = process_transactions(
             amazon_config=AmazonConfig(
                 username=settings.amazon_user,
-                password=settings.amazon_password.get_secret_value(),
+                password=settings.amazon_password,
                 transaction_days=31,
             ),
-            ynab_config=Configuration(
-                access_token=settings.ynab_api_key.get_secret_value()
-            ),
+            ynab_config=Configuration(access_token=settings.ynab_api_key.get_secret_value()),
             budget_id=settings.ynab_budget_id.get_secret_value(),
             dry_run=dry_run,
             force=force,
@@ -355,6 +355,7 @@ def daemon(
     Or use --windows for random times within specific hour ranges.
     [yellow i]Uses settings from .env file.[/]
     """
+
     def run_sync() -> None:
         _run_daemon_sync(dry_run, force)
 
@@ -367,7 +368,7 @@ def daemon(
         while True:
             next_run = _get_next_window_run(parsed_windows)
             sleep_seconds = (next_run - datetime.now()).total_seconds()
-            logger.info(f"Next run scheduled for {next_run} (sleeping {sleep_seconds/3600:.1f}h)")
+            logger.info(f"Next run scheduled for {next_run} (sleeping {sleep_seconds / 3600:.1f}h)")
             rprint(f"[dim]Next run: {next_run}[/]")
             if sleep_seconds > 0:
                 time.sleep(sleep_seconds)
@@ -376,7 +377,7 @@ def daemon(
         rprint(f"[bold cyan]Starting YNAmazon daemon (interval: {interval_hours}h)[/]")
         logger.info(f"Daemon starting with {interval_hours}h interval")
         run_sync()
-        schedule.every(interval_hours).hours.do(run_sync)
+        schedule.every(int(interval_hours)).hours.do(run_sync)
         next_run = datetime.now().timestamp() + (interval_hours * 3600)
         logger.info(f"Next run scheduled for {datetime.fromtimestamp(next_run)}")
 

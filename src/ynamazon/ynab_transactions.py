@@ -225,7 +225,9 @@ def update_ynab_transaction(
 
     # Ensure memo doesn't exceed character limit
     if len(memo_str) > YNAB_MEMO_LIMIT:
-        logger.warning(f"Memo exceeds {YNAB_MEMO_LIMIT} character limit ({len(memo_str)} chars). Truncating...")
+        logger.warning(
+            f"Memo exceeds {YNAB_MEMO_LIMIT} character limit ({len(memo_str)} chars). Truncating..."
+        )
         # Keep the important parts - first warning line, and the URL at the end
         lines = memo_str.split("\n")
 

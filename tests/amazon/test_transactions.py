@@ -8,9 +8,11 @@ from amazonorders.entity.item import Item
 from amazonorders.entity.order import Order
 from amazonorders.session import AmazonSession
 from faker import Faker
+from pydantic import SecretStr
 
 from ynamazon.amazon_transactions import (  # type: ignore[import-untyped]
-    _fetch_amazon_order_history,
+    AmazonConfig,
+    AmazonTransactionRetriever,
 )
 
 if TYPE_CHECKING:
@@ -81,12 +83,26 @@ def mock_amazon_many_items():
     return order
 
 
-def side_effect(year, *, mock_orders: list[Order]) -> Order:
+def side_effect(year, *, mock_orders: list[Order], **kwargs) -> list[Order]:
     if year == "2022":
         return [mock_orders[0]]
     elif year == "2023":
         return [mock_orders[1]]
     return []
+
+
+def _make_retriever(years: list[str]) -> AmazonTransactionRetriever:
+    """Create a retriever with the given years, bypassing settings defaults."""
+    config = AmazonConfig(
+        username="test@example.com",
+        password=SecretStr("test-password"),
+        debug=False,
+        otp_secret_key=None,
+    )
+    return AmazonTransactionRetriever(
+        amazon_config=config,
+        order_years=years,
+    )
 
 
 @patch("ynamazon.amazon_transactions.AmazonOrders")
@@ -98,19 +114,20 @@ def test_fetch_amazon_order_history_with_years(
     side_effect_year = functools.partial(side_effect, mock_orders=mock_orders)
     mock_amazon_orders.return_value.get_order_history.side_effect = side_effect_year
 
-    result = _fetch_amazon_order_history(session=mock_session, years=[2022, 2023])
+    retriever = _make_retriever(years=["2022", "2023"])
+    # Inject mocked session so _session() isn't called
+    with patch.object(retriever, "_session", return_value=mock_session):
+        result = retriever._amazon_orders()
 
     assert len(result) == 2
     assert result[0].order_number == "123"
     assert result[1].order_number == "456"
-    mock_amazon_orders.return_value.get_order_history.assert_any_call(year="2022")
-    mock_amazon_orders.return_value.get_order_history.assert_any_call(year="2023")
+    mock_amazon_orders.return_value.get_order_history.assert_any_call(year="2022", full_details=True)
+    mock_amazon_orders.return_value.get_order_history.assert_any_call(year="2023", full_details=True)
 
 
-@patch(
-    "ynamazon.amazon_transactions.AmazonOrders",
-)
-def test_fetch_amazon_order_history_no_years(
+@patch("ynamazon.amazon_transactions.AmazonOrders")
+def test_fetch_amazon_order_history_single_year(
     mock_amazon_orders: "AmazonOrders",
     mock_session: AmazonSession,
     mock_orders: list[Order],
@@ -118,30 +135,18 @@ def test_fetch_amazon_order_history_no_years(
     side_effect_year = functools.partial(side_effect, mock_orders=mock_orders)
     mock_amazon_orders.return_value.get_order_history.side_effect = side_effect_year
 
-    mock_current_year = 2023
-
-    with patch("ynamazon.amazon_transactions.date", autospec=True) as mock_date:
-        mock_date.today.return_value.year = mock_current_year
-        result = _fetch_amazon_order_history(session=mock_session)
+    retriever = _make_retriever(years=["2023"])
+    with patch.object(retriever, "_session", return_value=mock_session):
+        result = retriever._amazon_orders()
 
     assert len(result) == 1
     assert result[0].order_number == "456"
     mock_amazon_orders.return_value.get_order_history.assert_called_once_with(
-        year=str(mock_current_year)
+        year="2023", full_details=True
     )
 
 
-def test_fetch_amazon_order_history_unauthenticated_session():
-    session = MagicMock(spec=AmazonSession)
-    session.is_authenticated = False
-
-    with pytest.raises(ValueError, match="Session must be authenticated."):
-        _fetch_amazon_order_history(session=session)
-
-
-@patch(
-    "ynamazon.amazon_transactions.AmazonOrders",
-)
+@patch("ynamazon.amazon_transactions.AmazonOrders")
 def test_fetch_amazon_order_history_several_items(
     mock_amazon_orders: "AmazonOrders",
     mock_amazon_many_items: Order,
@@ -151,7 +156,9 @@ def test_fetch_amazon_order_history_several_items(
         mock_amazon_many_items
     ]
 
-    result = _fetch_amazon_order_history(session=mock_session, years=[2023])
+    retriever = _make_retriever(years=["2023"])
+    with patch.object(retriever, "_session", return_value=mock_session):
+        result = retriever._amazon_orders()
 
     assert len(result) == 1
     assert len(result[0].items) == 5

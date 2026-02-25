@@ -24,7 +24,7 @@ def generate_ai_summary(
     order_url: str,
     order_total: Optional[str] = None,
     transaction_amount: Optional[str] = None,
-    max_length: int = YNAB_MEMO_LIMIT
+    max_length: int = YNAB_MEMO_LIMIT,
 ) -> str | None:
     """Uses OpenAI to generate a concise human-readable memo that fits within the character limit.
 
@@ -54,13 +54,17 @@ def generate_ai_summary(
     # Prepare content for summarization
     partial_order_note = ""
     if order_total and transaction_amount and order_total != transaction_amount:
-        partial_order_note = (f"-This transaction doesn't represent the entire order. The order total is ${order_total}-")
+        partial_order_note = f"-This transaction doesn't represent the entire order. The order total is ${order_total}-"
 
     # Format items as text for the prompt
     items_text = "\n".join([f"- {item}" for item in items])
 
     # Select the appropriate prompt based on markdown setting
-    user_prompt = AMAZON_SUMMARY_MARKDOWN_PROMPT if settings.ynab_use_markdown else AMAZON_SUMMARY_PLAIN_PROMPT
+    user_prompt = (
+        AMAZON_SUMMARY_MARKDOWN_PROMPT
+        if settings.ynab_use_markdown
+        else AMAZON_SUMMARY_PLAIN_PROMPT
+    )
 
     # Add the items to the prompt
     full_prompt = f"{user_prompt}\n\nOrder Details:\n{items_text}"
@@ -71,8 +75,8 @@ def generate_ai_summary(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": AMAZON_SUMMARY_SYSTEM_PROMPT},
-                {"role": "user", "content": full_prompt}
-            ]
+                {"role": "user", "content": full_prompt},
+            ],
         )
     except AuthenticationError as e:
         raise InvalidOpenAIAPIKey("Invalid OpenAI API key") from e
@@ -144,12 +148,17 @@ def extract_order_url(memo: str) -> str | None:
     normalized_memo = normalize_memo(memo)
 
     # First try to find a markdown URL
-    markdown_url_match = re.search(r'\[Order\s*#[\w-]+\]\((https://www\.amazon\.com/gp/your-account/order-details\?orderID=[\w-]+)\)', normalized_memo)
+    markdown_url_match = re.search(
+        r"\[Order\s*#[\w-]+\]\((https://www\.amazon\.com/gp/your-account/order-details\?orderID=[\w-]+)\)",
+        normalized_memo,
+    )
     if markdown_url_match:
         return markdown_url_match.group(1)
 
     # If no markdown URL found, look for a plain URL
-    plain_url_match = re.search(r'https://www\.amazon\.com/gp/your-account/order-details\?orderID=[\w-]+', normalized_memo)
+    plain_url_match = re.search(
+        r"https://www\.amazon\.com/gp/your-account/order-details\?orderID=[\w-]+", normalized_memo
+    )
     if plain_url_match:
         return plain_url_match.group(0)
 
@@ -171,7 +180,9 @@ def _extract_memo_parts(memo: str) -> tuple[str | None, str | None, list[str]]:
     return multi_order_line, items_header, item_lines
 
 
-def _calculate_remaining_space(multi_order_line: str | None, items_header: str | None, item_lines: list[str], url_line: str) -> int:
+def _calculate_remaining_space(
+    multi_order_line: str | None, items_header: str | None, item_lines: list[str], url_line: str
+) -> int:
     """Calculate remaining space for content after accounting for required parts."""
     required_lines = [line for line in [multi_order_line, items_header, url_line] if line]
     required_space = sum(len(line) + 1 for line in required_lines)  # +1 for newline
@@ -206,14 +217,19 @@ def truncate_memo(memo: str) -> str:
     url_line = extract_order_url(memo)
 
     # Strip all markdown formatting
-    clean_memo = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', memo)  # Remove markdown links
-    clean_memo = re.sub(r'\*\*([^*]+)\*\*', r'\1', clean_memo)  # Remove bold
+    clean_memo = re.sub(r"\[([^\]]+)\]\([^\)]+\)", r"\1", memo)  # Remove markdown links
+    clean_memo = re.sub(r"\*\*([^*]+)\*\*", r"\1", clean_memo)  # Remove bold
 
     # Extract key parts
     multi_order_line, items_header, item_lines = _extract_memo_parts(clean_memo)
 
     # Calculate available space
-    available_space = _calculate_remaining_space(multi_order_line, items_header, item_lines, url_line)  # pyright: ignore[reportArgumentType]
+    available_space = _calculate_remaining_space(
+        multi_order_line,
+        items_header,
+        item_lines,
+        url_line,  # pyright: ignore[reportArgumentType]
+    )
 
     # Truncate items if needed
     truncated_items = _truncate_item_lines(item_lines, available_space)
@@ -233,8 +249,8 @@ def truncate_memo(memo: str) -> str:
 def summarize_memo_with_ai(memo: str, order_url: str) -> str:
     """Summarize a memo using AI, ensuring it fits within YNAB's character limit."""
     # Strip markdown formatting
-    clean_memo = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', memo)  # Remove markdown links
-    clean_memo = re.sub(r'\*\*([^*]+)\*\*', r'\1', clean_memo)  # Remove bold
+    clean_memo = re.sub(r"\[([^\]]+)\]\([^\)]+\)", r"\1", memo)  # Remove markdown links
+    clean_memo = re.sub(r"\*\*([^*]+)\*\*", r"\1", clean_memo)  # Remove bold
 
     # Extract items and order information
     lines = clean_memo.split("\n")
@@ -263,7 +279,7 @@ def summarize_memo_with_ai(memo: str, order_url: str) -> str:
         items=items,
         order_url=order_url,
         order_total=order_total,
-        transaction_amount=transaction_amount
+        transaction_amount=transaction_amount,
     )
 
     # If AI summarization failed or summary is too long, fall back to truncation
@@ -307,7 +323,9 @@ def process_memo(memo: str) -> str:
         logger.info("Using AI summarization")
         processed_memo = summarize_memo_with_ai(original_memo, order_url)
         if processed_memo:
-            logger.info(f"Processed memo from {original_length} to {len(processed_memo)} characters using AI")
+            logger.info(
+                f"Processed memo from {original_length} to {len(processed_memo)} characters using AI"
+            )
             return processed_memo
         else:
             logger.warning("AI summarization failed, falling back to truncation")
@@ -315,7 +333,9 @@ def process_memo(memo: str) -> str:
     # If AI summarization is disabled or failed, check if we need truncation
     if original_length > YNAB_MEMO_LIMIT:
         processed_memo = truncate_memo(original_memo)
-        logger.info(f"Processed memo from {original_length} to {len(processed_memo)} characters using truncation")
+        logger.info(
+            f"Processed memo from {original_length} to {len(processed_memo)} characters using truncation"
+        )
         return processed_memo
 
     return original_memo

@@ -1,6 +1,8 @@
 name: CI
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -12,26 +14,43 @@ concurrency:
 jobs:
   lint:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential zlib1g-dev libjpeg-dev
       - run: uv sync --frozen --dev
-      - run: uv run ruff check src/ || true
-      - run: uv run ruff format --check src/ || true
+      - name: Ruff check
+        run: uv run ruff check src/
+      - name: Ruff format check
+        run: uv run ruff format --check src/
 
   typecheck:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential zlib1g-dev libjpeg-dev
       - run: uv sync --frozen --dev
-      - run: uv run pyright src/ || true
+      - name: Pyright
+        run: uv run pyright src/
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential zlib1g-dev libjpeg-dev
+      - run: uv sync --frozen --group test --extra ai
+      - name: Run tests
+        env:
+          YNAB_API_KEY: test-key
+          YNAB_BUDGET_ID: test-budget
+          AMAZON_USER: test@example.com
+          AMAZON_PASSWORD: test-password
+        run: uv run pytest tests/ -v --tb=short
 
   build:
     runs-on: ubuntu-latest

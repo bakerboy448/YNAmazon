@@ -53,6 +53,11 @@ test = [
     "pytest-sugar>=1.0.0",
 ]
 
+[tool.uv]
+# amazoncaptcha==0.5.11 pins pillow<9.6.0 which has no wheels for Python 3.12/arm64.
+# Pillow 10+ is API-compatible and supports modern Python versions.
+override-dependencies = ["pillow>=10.0.0"]
+
 [tool.pytest.ini_options]
 minversion = "6.0"
 python_files = ["test_*.py"]

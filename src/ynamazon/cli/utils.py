@@ -52,14 +52,7 @@ class GithubRepoUrl(BaseModel):
     @property
     def api_workflows(self) -> furl:
         """Get the API URL for workflows."""
-        return (
-            self._api_host
-            / "repos"
-            / self.owner
-            / self.repo_name
-            / "actions"
-            / "workflows"
-        )
+        return self._api_host / "repos" / self.owner / self.repo_name / "actions" / "workflows"
 
 
 def get_label_link(url: str) -> tuple[str, furl]:
@@ -203,9 +196,7 @@ class WorkflowResponse(ResponseBase):
         raise ValueError("No workflow runs found.")
 
 
-def build_workflow_url(
-    repo_url: GithubRepoUrl, filename: str = WORKFLOW_FILENAME
-) -> furl:
+def build_workflow_url(repo_url: GithubRepoUrl, filename: str = WORKFLOW_FILENAME) -> furl:
     """Build the URL to the GitHub Actions workflow."""
     return repo_url.api_workflows / filename
 
