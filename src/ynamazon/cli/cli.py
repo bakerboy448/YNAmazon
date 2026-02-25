@@ -226,10 +226,11 @@ def ynamazon(
 
 def _send_notification(title: str, message: str, notify_type: apprise.NotifyType = apprise.NotifyType.SUCCESS) -> None:
     """Send a notification via Apprise. Silently skips if no URLs configured."""
-    if not settings.apprise_urls:
+    apprise_urls_str = settings.apprise_urls.get_secret_value()
+    if not apprise_urls_str:
         return
     notifier = apprise.Apprise()
-    for url in settings.apprise_urls.split(","):
+    for url in apprise_urls_str.split(","):
         url = url.strip()
         if url:
             notifier.add(url)
@@ -264,11 +265,18 @@ def _run_daemon_sync(dry_run: bool, force: bool) -> None:
                     f"Matched: {result.matched} | Updated: {result.updated} | Skipped: {result.skipped}"
                 ),
             )
-    except Exception as e:
-        logger.exception(f"Sync failed: {e}")
+    except (ConnectionError, TimeoutError, OSError) as e:
+        logger.exception(f"Sync failed (network): {type(e).__name__}")
         _send_notification(
             title="YNAmazon sync failed",
-            message=str(e),
+            message=f"Network error: {type(e).__name__}",
+            notify_type=apprise.NotifyType.WARNING,
+        )
+    except Exception as e:
+        logger.exception(f"Sync failed: {type(e).__name__}")
+        _send_notification(
+            title="YNAmazon sync failed",
+            message=f"Error: {type(e).__name__}",
             notify_type=apprise.NotifyType.WARNING,
         )
 
@@ -347,7 +355,8 @@ def daemon(
     Or use --windows for random times within specific hour ranges.
     [yellow i]Uses settings from .env file.[/]
     """
-    run_sync = lambda: _run_daemon_sync(dry_run, force)  # noqa: E731
+    def run_sync() -> None:
+        _run_daemon_sync(dry_run, force)
 
     if windows:
         parsed_windows = _parse_windows(windows)

@@ -215,7 +215,7 @@ def get_workflow_runs(repo_url: GithubRepoUrl, filename: str = WORKFLOW_FILENAME
     workflow_url = build_workflow_url(repo_url, filename) / "runs"
     logger.debug(f"Workflow URL: {workflow_url}")
     headers = {"Accept": "application/vnd.github+json"}
-    response = requests.get(workflow_url.url, headers=headers)
+    response = requests.get(workflow_url.url, headers=headers, timeout=30)
     response.raise_for_status()
 
     return WorkflowResponse.model_validate(response.json())

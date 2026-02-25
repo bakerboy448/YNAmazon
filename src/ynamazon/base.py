@@ -52,7 +52,7 @@ class ListRootModel(RootModel[list[_ModelT]], Generic[_ModelT]):
         items_schema = cast("ModelSchema", _get_or_raise(schema, "items_schema"))
         return cast("type[_ModelT]", _get_or_raise(items_schema, "cls"))
 
-    def append(self, item: _ModelT):
+    def append(self, item: _ModelT) -> None:
         """Append an item to the end of class."""
         self.root.append(item)
 

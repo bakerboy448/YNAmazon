@@ -1,17 +1,19 @@
 """Functions for truncating and summarizing memos to fit YNAB's character limit."""
 
-from loguru import logger
 import re
 from typing import Optional
-from openai import OpenAI  # pyright: ignore[reportMissingImports]
-from openai import AuthenticationError, RateLimitError, APIError  # pyright: ignore[reportMissingImports]
-from ynamazon.settings import settings
+
+from loguru import logger
+from openai import APIError, AuthenticationError, OpenAI, RateLimitError  # pyright: ignore[reportMissingImports]
+
 from ynamazon.prompts import (
-    AMAZON_SUMMARY_SYSTEM_PROMPT,
+    AMAZON_SUMMARY_MARKDOWN_PROMPT,
     AMAZON_SUMMARY_PLAIN_PROMPT,
-    AMAZON_SUMMARY_MARKDOWN_PROMPT
+    AMAZON_SUMMARY_SYSTEM_PROMPT,
 )
-from .exceptions import MissingOpenAIAPIKey, InvalidOpenAIAPIKey, OpenAIEmptyResponseError
+from ynamazon.settings import settings
+
+from .exceptions import InvalidOpenAIAPIKey, MissingOpenAIAPIKey, OpenAIEmptyResponseError
 
 # Constants
 YNAB_MEMO_LIMIT = 500  # YNAB's character limit for memos
@@ -74,14 +76,14 @@ def generate_ai_summary(
         )
     except AuthenticationError as e:
         raise InvalidOpenAIAPIKey("Invalid OpenAI API key") from e
-    except RateLimitError as e:
-        logger.error(f"OpenAI API rate limit exceeded: {e}")
+    except RateLimitError:
+        logger.error("OpenAI API rate limit exceeded")
         return None
     except APIError as e:
-        logger.error(f"OpenAI API error: {e}")
+        logger.error(f"OpenAI API error: {type(e).__name__}")
         return None
-    except Exception as e:
-        logger.error(f"Unexpected error using OpenAI API: {e}")
+    except (ConnectionError, TimeoutError) as e:
+        logger.error(f"Network error calling OpenAI API: {type(e).__name__}")
         return None
 
     # Check for empty response

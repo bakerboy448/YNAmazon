@@ -2,7 +2,7 @@
 from datetime import date
 from pathlib import Path
 from decimal import Decimal
-from typing import Annotated, Union  # ,  Self  # not available python <3.11
+from typing import Annotated  # ,  Self  # not available python <3.11
 
 from amazonorders.entity.order import Order
 from amazonorders.entity.transaction import Transaction
@@ -39,7 +39,7 @@ class AmazonTransactionWithOrderInfo(BaseModel):
 
     # TODO: when dropping support for python <3.11, use Self
     @classmethod
-    def from_transaction_and_orders(cls, orders_dict: "dict[str, Order]", transaction: Transaction):
+    def from_transaction_and_orders(cls, orders_dict: "dict[str, Order]", transaction: Transaction) -> "AmazonTransactionWithOrderInfo":
         """Creates an instance from an order and transactions."""
         order = orders_dict.get(transaction.order_number)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportAttributeAccessIssue]
         if order is None:
@@ -68,7 +68,7 @@ class AmazonConfig(BaseModel):
     username: EmailStr = Field(default_factory=lambda: settings.amazon_user)
     password: SecretStr = Field(default_factory=lambda: settings.amazon_password)
     debug: bool = Field(default_factory=lambda: settings.amazon_debug)
-    otp_secret_key: str | None = Field(default_factory=lambda: settings.amazon_otp_secret_key)
+    otp_secret_key: SecretStr | None = Field(default_factory=lambda: settings.amazon_otp_secret_key)
     transaction_days: int = 31
 
     def amazon_session(self) -> AmazonSession:
@@ -78,7 +78,7 @@ class AmazonConfig(BaseModel):
             username=self.username,
             password=self.password.get_secret_value(),
             debug=self.debug,
-            otp_secret_key=self.otp_secret_key,
+            otp_secret_key=self.otp_secret_key.get_secret_value() if self.otp_secret_key else None,
         )
 
 
@@ -256,24 +256,19 @@ def _truncate_title(title: str, max_length: int = 20) -> str:
 
 
 def locate_amazon_transaction_by_amount(
-    amazon_trans: list[AmazonTransactionWithOrderInfo], amount: Union[float, Decimal]
-) -> Union[int, None]:
+    amazon_trans: list[AmazonTransactionWithOrderInfo], amount: Decimal
+) -> int | None:
     """Given an amount, locate a matching Amazon transaction.
 
     Args:
-        amazon_trans (list[TransactionWithOrderInfo]): A list of Amazon transactions
-        amount (int): An amount to match
+        amazon_trans (list[AmazonTransactionWithOrderInfo]): A list of Amazon transactions
+        amount (Decimal): An amount to match
 
     Returns:
         int | None: Index of matched transaction in `amazon_trans` or None if no match
     """
-    amount = Decimal(amount)
     for idx, a_tran in enumerate(amazon_trans):
         if a_tran.transaction_total == -amount:
             return idx
 
     return None
-
-
-# if __name__ == "__main__":
-# print_amazon_transactions(AmazonTransactionRetriever.new()

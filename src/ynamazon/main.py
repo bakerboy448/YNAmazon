@@ -188,6 +188,7 @@ def process_transactions(  # noqa: C901
             continue
 
         console.print("[green]Updating YNAB transaction memo...[/]")
+        logger.info(f"Updating transaction {ynab_tran.id} with Amazon order #{amazon_tran.order_number}")
 
         update_ynab_transaction(
             transaction=ynab_tran,
@@ -195,6 +196,7 @@ def process_transactions(  # noqa: C901
             payee_id=amazon_with_memo_payee.id,
         )
         result.updated += 1
+        logger.info(f"Transaction {ynab_tran.id} updated successfully")
         console.print("\n\n")
 
     return result

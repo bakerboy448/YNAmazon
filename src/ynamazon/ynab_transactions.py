@@ -1,7 +1,7 @@
 from collections.abc import Iterable
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import Any, TypeVar, Union
+from typing import Any, TypeVar
 
 from loguru import logger
 from pydantic import AnyUrl
@@ -19,6 +19,8 @@ from ynab.models.put_transaction_wrapper import PutTransactionWrapper
 from ynamazon.base import ListRootModel
 from ynamazon.exceptions import YnabSetupError
 from ynamazon.settings import settings
+
+YNAB_MEMO_LIMIT = 500
 
 default_configuration = Configuration(access_token=settings.ynab_api_key.get_secret_value())
 my_budget_id = settings.ynab_budget_id
@@ -83,8 +85,8 @@ class Payees(ListRootModel[Payee]):
 
 
 def get_payees_by_budget(
-    configuration: Union[Configuration, None] = None,
-    budget_id: Union[str, None] = None,
+    configuration: Configuration | None = None,
+    budget_id: str | None = None,
 ) -> list["Payee"]:
     """Returns a list of payees by budget ID.
 
@@ -105,8 +107,8 @@ def get_payees_by_budget(
 
 def get_transactions_by_payee(
     payee: Payee,
-    configuration: Union[Configuration, None] = None,
-    budget_id: Union[str, None] = None,
+    configuration: Configuration | None = None,
+    budget_id: str | None = None,
 ) -> list[TempYnabTransaction]:
     """Returns a list of transactions by payee.
 
@@ -130,8 +132,8 @@ def get_transactions_by_payee(
 
 
 def get_ynab_transactions(
-    configuration: Union[Configuration, None] = None,
-    budget_id: Union[str, None] = None,
+    configuration: Configuration | None = None,
+    budget_id: str | None = None,
     force: bool = False,
     days: int = 31,
 ) -> tuple[TempYnabTransactions, "Payee"]:
@@ -200,8 +202,8 @@ def update_ynab_transaction(
     transaction: "HybridTransaction",
     memo: str,
     payee_id: str,
-    configuration: Union[Configuration, None] = None,
-    budget_id: Union[str, None] = None,
+    configuration: Configuration | None = None,
+    budget_id: str | None = None,
 ) -> None:
     """Updates a YNAB transaction with the given memo and payee ID.
 
@@ -221,9 +223,9 @@ def update_ynab_transaction(
     # Convert memo to string if it's a MultiLineText object
     memo_str = str(memo)
 
-    # Ensure memo doesn't exceed 500 character limit
-    if len(memo_str) > 500:
-        logger.warning(f"Memo exceeds 500 character limit ({len(memo_str)} chars). Truncating...")
+    # Ensure memo doesn't exceed character limit
+    if len(memo_str) > YNAB_MEMO_LIMIT:
+        logger.warning(f"Memo exceeds {YNAB_MEMO_LIMIT} character limit ({len(memo_str)} chars). Truncating...")
         # Keep the important parts - first warning line, and the URL at the end
         lines = memo_str.split("\n")
 
@@ -236,28 +238,30 @@ def update_ynab_transaction(
             header = lines[0] + "\n\n"
 
         # Calculate remaining space for content
-        remaining_space = 500 - len(header) - len(url_line) - 4  # 4 chars for "...\n"
+        remaining_space = YNAB_MEMO_LIMIT - len(header) - len(url_line) - 4  # 4 chars for "...\n"
 
         # Get middle content (item list) and truncate if needed
         middle_content = "\n".join(lines[1:-1])
         if len(middle_content) > remaining_space:
             middle_content = middle_content[:remaining_space] + "..."
 
-        # Combine the parts to stay under 500 chars
+        # Combine the parts to stay under limit
         memo_str = f"{header}{middle_content}\n{url_line}"
 
+    logger.debug(f"Updating YNAB transaction {transaction.id} with memo length {len(memo_str)}")
     data.transaction.memo = memo_str
     data.transaction.payee_id = payee_id
     with ApiClient(configuration=configuration) as api_client:
         _ = TransactionsApi(api_client=api_client).update_transaction(
             budget_id=budget_id, transaction_id=transaction.id, data=data
         )
+    logger.info(f"Successfully updated transaction {transaction.id}")
 
 
 _T = TypeVar("_T", bound=Payee)
 
 
-def find_item_by_attribute(items: Iterable[_T], attribute: str, value: Any) -> Union[_T, None]:
+def find_item_by_attribute(items: Iterable[_T], attribute: str, value: Any) -> _T | None:
     """Finds an item in a list by its attribute value.
 
     Args:
@@ -294,7 +298,7 @@ def print_ynab_transactions(transactions: list[TempYnabTransaction]) -> None:
     rprint(table)
 
 
-def markdown_formatted_title(title: str, url: Union[str, AnyUrl]) -> str:
+def markdown_formatted_title(title: str, url: str | AnyUrl) -> str:
     """Returns a formatted item title in markdown or raw format, dependent on ynab_use_markdown.
 
     Args:
@@ -310,7 +314,7 @@ def markdown_formatted_title(title: str, url: Union[str, AnyUrl]) -> str:
     return title
 
 
-def markdown_formatted_link(title: str, url: Union[str, AnyUrl]) -> str:
+def markdown_formatted_link(title: str, url: str | AnyUrl) -> str:
     """Returns a link in markdown or raw format, dependent on ynab_use_markdown.
 
     Args:
