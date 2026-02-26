@@ -1,6 +1,61 @@
 # CHANGELOG
 
 
+## v0.7.1 (2026-02-26)
+
+### Bug Fixes
+
+- Standardize notification title prefix format
+  ([`0ff63b9`](https://github.com/bakerboy448/YNAmazon/commit/0ff63b9957763bacf5d7c7f53617834984efc5c0))
+
+Change "YNAmazon sync failed" to "YNAmazon: Sync failed" for consistent colon-separated prefix
+  matching ynab-balance-monitor.
+
+- Unblock build and fix CI pipeline
+  ([`1d4e8e6`](https://github.com/bakerboy448/YNAmazon/commit/1d4e8e6e6508624bb79622ef4f3d0a60729c55d9))
+
+- Override amazoncaptcha's pillow<9.6.0 constraint (upgraded to 12.1.1) - Fix CI workflow: add env
+  vars for tests, install ai extra - Fix pyright type errors (SecretStr arg, schedule int cast,
+  ignore placement) - Add tests/conftest.py with dummy env vars for test collection - Rewrite broken
+  test_transactions.py to match refactored API - Auto-format all source files with ruff
+
+### Documentation
+
+- Add daemon mode and Apprise notifications to README
+  ([`998588e`](https://github.com/bakerboy448/YNAmazon/commit/998588e5225743a5d75a545712698299028f2543))
+
+
+## v0.7.0 (2026-02-24)
+
+### Bug Fixes
+
+- Address code review findings across all modules
+  ([`52beced`](https://github.com/bakerboy448/YNAmazon/commit/52becedab478783ba49b309b4eac2469fd38e6b8))
+
+- Protect TOTP secret and Apprise URLs with SecretStr - Sanitize exception logging to prevent API
+  key leakage - Replace broad except Exception with specific handlers - Add HTTP timeout (30s) to
+  requests.get calls - Fix float→Decimal in locate_amazon_transaction_by_amount - Replace Union[X,
+  None] with X | None throughout - Add return type annotations to public methods - Add logging to
+  YNAB transaction update operations - Use YNAB_MEMO_LIMIT constant instead of magic 500 - Replace
+  lambda with proper function in daemon command - Remove commented-out dead code - Fix PEP 8 import
+  ordering and blank lines in exceptions
+
+### Chores
+
+- Condense CLAUDE.md
+  ([`a3f7dd0`](https://github.com/bakerboy448/YNAmazon/commit/a3f7dd0512f2ea9d87ae824459c3529832e210f4))
+
+### Features
+
+- Add Apprise notifications for daemon sync results
+  ([`e5e253b`](https://github.com/bakerboy448/YNAmazon/commit/e5e253bf88645cb0dcdf2d9aa18c85e0f2a23375))
+
+Sends Discord notifications via Apprise when daemon sync updates transactions or fails. No
+  notification on zero-match runs to avoid noise.
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+
 ## v0.6.0 (2026-02-10)
 
 ### Bug Fixes
