@@ -268,14 +268,14 @@ def _run_daemon_sync(dry_run: bool, force: bool) -> None:
     except (ConnectionError, TimeoutError, OSError) as e:
         logger.exception(f"Sync failed (network): {type(e).__name__}")
         _send_notification(
-            title="YNAmazon sync failed",
+            title="YNAmazon: Sync failed",
             message=f"Network error: {type(e).__name__}",
             notify_type=apprise.NotifyType.WARNING,
         )
     except Exception as e:
         logger.exception(f"Sync failed: {type(e).__name__}")
         _send_notification(
-            title="YNAmazon sync failed",
+            title="YNAmazon: Sync failed",
             message=f"Error: {type(e).__name__}",
             notify_type=apprise.NotifyType.WARNING,
         )
