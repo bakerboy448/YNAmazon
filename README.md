@@ -1,5 +1,8 @@
 # YNAmazon
 
+[![CI](https://github.com/bakerboy448/YNAmazon/actions/workflows/ci.yml/badge.svg)](https://github.com/bakerboy448/YNAmazon/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A program to annotate YNAB transactions with Amazon order info.
 
 ## Features
