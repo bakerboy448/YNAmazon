@@ -1,4 +1,5 @@
-from collections.abc import Iterable
+from collections.abc import Generator, Iterable
+from contextlib import contextmanager
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, TypeVar
@@ -16,6 +17,7 @@ from ynab.models.hybrid_transaction import HybridTransaction
 from ynab.models.payee import Payee
 from ynab.models.put_transaction_wrapper import PutTransactionWrapper
 
+from ynamazon import USER_AGENT
 from ynamazon.base import ListRootModel
 from ynamazon.exceptions import YnabSetupError
 from ynamazon.settings import settings
@@ -24,6 +26,14 @@ YNAB_MEMO_LIMIT = 500
 
 default_configuration = Configuration(access_token=settings.ynab_api_key.get_secret_value())
 my_budget_id = settings.ynab_budget_id
+
+
+@contextmanager
+def ynab_api_client(configuration: Configuration) -> Generator[ApiClient, None, None]:
+    """Create an ApiClient with the YNAmazon User-Agent set."""
+    with ApiClient(configuration=configuration) as api_client:
+        api_client.user_agent = USER_AGENT
+        yield api_client
 
 
 class TempYnabTransaction(HybridTransaction):
@@ -61,7 +71,7 @@ class TempYnabTransactions(ListRootModel[TempYnabTransaction]):
     def get_by_payee(
         cls, payee: Payee, *, configuration: Configuration, budget_id: str
     ) -> "TempYnabTransactions":
-        with ApiClient(configuration=configuration) as api_client:
+        with ynab_api_client(configuration) as api_client:
             response = TransactionsApi(api_client).get_transactions_by_payee(
                 budget_id=budget_id,
                 payee_id=payee.id,
@@ -73,7 +83,7 @@ class TempYnabTransactions(ListRootModel[TempYnabTransaction]):
 class Payees(ListRootModel[Payee]):
     @classmethod
     def get_by_budget(cls, *, configuration: Configuration, budget_id: str) -> "Payees":
-        with ApiClient(configuration=configuration) as api_client:
+        with ynab_api_client(configuration) as api_client:
             response = PayeesApi(api_client).get_payees(budget_id=budget_id)
         return cls.model_validate(response.data.payees)
 
@@ -99,7 +109,7 @@ def get_payees_by_budget(
     """
     configuration = configuration or default_configuration
     budget_id = budget_id or my_budget_id.get_secret_value()
-    with ApiClient(configuration=configuration) as api_client:
+    with ynab_api_client(configuration) as api_client:
         response = PayeesApi(api_client).get_payees(budget_id=budget_id)
 
     return response.data.payees
@@ -122,7 +132,7 @@ def get_transactions_by_payee(
     """
     configuration = configuration or default_configuration
     budget_id = budget_id or my_budget_id.get_secret_value()
-    with ApiClient(configuration=configuration) as api_client:
+    with ynab_api_client(configuration) as api_client:
         response = TransactionsApi(api_client).get_transactions_by_payee(
             budget_id=budget_id,
             payee_id=payee.id,
@@ -253,7 +263,7 @@ def update_ynab_transaction(
     logger.debug(f"Updating YNAB transaction {transaction.id} with memo length {len(memo_str)}")
     data.transaction.memo = memo_str
     data.transaction.payee_id = payee_id
-    with ApiClient(configuration=configuration) as api_client:
+    with ynab_api_client(configuration) as api_client:
         _ = TransactionsApi(api_client=api_client).update_transaction(
             budget_id=budget_id, transaction_id=transaction.id, data=data
         )

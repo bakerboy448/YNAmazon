@@ -6,6 +6,7 @@ from typing import Optional
 from loguru import logger
 from openai import APIError, AuthenticationError, OpenAI, RateLimitError  # pyright: ignore[reportMissingImports]
 
+from ynamazon import USER_AGENT
 from ynamazon.prompts import (
     AMAZON_SUMMARY_MARKDOWN_PROMPT,
     AMAZON_SUMMARY_PLAIN_PROMPT,
@@ -49,7 +50,10 @@ def generate_ai_summary(
         raise MissingOpenAIAPIKey("OpenAI API key not found")
 
     # Create client
-    client = OpenAI(api_key=settings.openai_api_key.get_secret_value())
+    client = OpenAI(
+        api_key=settings.openai_api_key.get_secret_value(),
+        default_headers={"User-Agent": USER_AGENT},
+    )
 
     # Prepare content for summarization
     partial_order_note = ""

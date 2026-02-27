@@ -6,6 +6,8 @@ from typing import Annotated, Any, ClassVar, Self
 import requests
 import typer
 
+from ynamazon import USER_AGENT
+
 # used as a "test" that the repo URL is valid
 from furl import furl  # type: ignore[import-untyped]
 from loguru import logger
@@ -205,7 +207,7 @@ def get_workflow_runs(repo_url: GithubRepoUrl, filename: str = WORKFLOW_FILENAME
     """Get the workflow runs for the given repository URL."""
     workflow_url = build_workflow_url(repo_url, filename) / "runs"
     logger.debug(f"Workflow URL: {workflow_url}")
-    headers = {"Accept": "application/vnd.github+json"}
+    headers = {"Accept": "application/vnd.github+json", "User-Agent": USER_AGENT}
     response = requests.get(workflow_url.url, headers=headers, timeout=30)
     response.raise_for_status()
 
