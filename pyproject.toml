@@ -74,6 +74,9 @@ ignore_missing_imports = true
 [tool.deptry]
 known_first_party = ["ynamazon"]
 
+[tool.deptry.package_module_name_map]
+amazon-orders = "amazonorders"
+
 [tool.semantic_release]
 version_variables = ["src/ynamazon/__init__.py:__version__"]
 branch = "main"

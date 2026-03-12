@@ -122,8 +122,12 @@ def test_fetch_amazon_order_history_with_years(
     assert len(result) == 2
     assert result[0].order_number == "123"
     assert result[1].order_number == "456"
-    mock_amazon_orders.return_value.get_order_history.assert_any_call(year="2022", full_details=True)
-    mock_amazon_orders.return_value.get_order_history.assert_any_call(year="2023", full_details=True)
+    mock_amazon_orders.return_value.get_order_history.assert_any_call(
+        year="2022", full_details=True
+    )
+    mock_amazon_orders.return_value.get_order_history.assert_any_call(
+        year="2023", full_details=True
+    )
 
 
 @patch("ynamazon.amazon_transactions.AmazonOrders")
@@ -152,9 +156,7 @@ def test_fetch_amazon_order_history_several_items(
     mock_amazon_many_items: Order,
     mock_session: AmazonSession,
 ):
-    mock_amazon_orders.return_value.get_order_history.return_value = [
-        mock_amazon_many_items
-    ]
+    mock_amazon_orders.return_value.get_order_history.return_value = [mock_amazon_many_items]
 
     retriever = _make_retriever(years=["2023"])
     with patch.object(retriever, "_session", return_value=mock_session):
