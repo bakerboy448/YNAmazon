@@ -14,7 +14,9 @@ from typer import run as typer_run
 from ynab.configuration import Configuration
 
 from ynamazon.amazon_transactions import AmazonConfig, AmazonTransactionRetriever
-from ynamazon.main import process_transactions
+from ynamazon.exceptions import FatalSyncError, TransientSyncError
+from ynamazon.main import SyncResult, process_transactions
+from ynamazon.retry import retry_on_transient
 from ynamazon.settings import settings
 from ynamazon.ynab_transactions import get_ynab_transactions
 
@@ -237,14 +239,32 @@ def _send_notification(
         if url:
             notifier.add(url)
     if not notifier.notify(title=title, body=message, notify_type=notify_type):
-        logger.error("Failed to send notification via Apprise")
+        logger.warning("Notification failed, retrying in 5s")
+        time.sleep(5)
+        if not notifier.notify(title=title, body=message, notify_type=notify_type):
+            logger.error("Failed to send notification after retry")
+
+
+def _build_error_message(error: Exception) -> str:
+    """Format an error message, including partial sync_result details if available."""
+    parts = [f"Error: {type(error).__name__}: {error}"]
+    sync_result = getattr(error, "sync_result", None)
+    if isinstance(sync_result, SyncResult):
+        parts.append(
+            f"Progress: YNAB={sync_result.ynab_count} Amazon={sync_result.amazon_count} "
+            f"Matched={sync_result.matched} Updated={sync_result.updated}"
+        )
+        if sync_result.errors:
+            parts.append(f"Errors: {'; '.join(sync_result.errors[:3])}")
+    return "\n".join(parts)
 
 
 def _run_daemon_sync(dry_run: bool, force: bool) -> None:
-    """Execute a single sync run."""
+    """Execute a single sync run with typed error handling and retry."""
     logger.info(f"Starting scheduled sync at {datetime.now()}")
-    try:
-        result = process_transactions(
+
+    def _do_sync() -> SyncResult:
+        return process_transactions(
             amazon_config=AmazonConfig(
                 username=settings.amazon_user,
                 password=settings.amazon_password,
@@ -256,28 +276,44 @@ def _run_daemon_sync(dry_run: bool, force: bool) -> None:
             force=force,
             non_interactive=True,
         )
-        logger.info("Sync completed successfully")
-        if result.updated > 0:
-            _send_notification(
-                title=f"YNAmazon: Updated {result.updated} transaction{'s' if result.updated != 1 else ''}",
-                message=(
-                    f"YNAB: {result.ynab_count} pending | Amazon: {result.amazon_count} fetched\n"
-                    f"Matched: {result.matched} | Updated: {result.updated} | Skipped: {result.skipped}"
-                ),
-            )
-    except (ConnectionError, TimeoutError, OSError) as e:
-        logger.exception(f"Sync failed (network): {type(e).__name__}")
+
+    try:
+        result = retry_on_transient(_do_sync, max_retries=3, base_delay=5.0, description="sync")
+    except TransientSyncError as e:
+        logger.exception(f"Sync failed (transient, retries exhausted): {e}")
         _send_notification(
-            title="YNAmazon: Sync failed",
-            message=f"Network error: {type(e).__name__}",
+            title="YNAmazon: Sync failed (transient, retries exhausted)",
+            message=_build_error_message(e),
             notify_type=apprise.NotifyType.WARNING,
         )
-    except Exception as e:
-        logger.exception(f"Sync failed: {type(e).__name__}")
+        return
+    except FatalSyncError as e:
+        logger.exception(f"Sync failed (requires human intervention): {e}")
         _send_notification(
-            title="YNAmazon: Sync failed",
-            message=f"Error: {type(e).__name__}",
-            notify_type=apprise.NotifyType.WARNING,
+            title="YNAmazon: Sync failed (requires intervention)",
+            message=_build_error_message(e),
+            notify_type=apprise.NotifyType.FAILURE,
+        )
+        return
+    except Exception as e:
+        logger.exception(f"Sync failed (unexpected): {type(e).__name__}")
+        _send_notification(
+            title="YNAmazon: Sync failed (unexpected)",
+            message=f"Error: {type(e).__name__}: {e}",
+            notify_type=apprise.NotifyType.FAILURE,
+        )
+        return
+
+    logger.info("Sync completed successfully")
+    if result.updated > 0 or result.errors:
+        error_note = f"\nWarnings: {len(result.errors)}" if result.errors else ""
+        _send_notification(
+            title=f"YNAmazon: Updated {result.updated} transaction{'s' if result.updated != 1 else ''}",
+            message=(
+                f"YNAB: {result.ynab_count} pending | Amazon: {result.amazon_count} fetched\n"
+                f"Matched: {result.matched} | Updated: {result.updated} | Skipped: {result.skipped}"
+                f"{error_note}"
+            ),
         )
 
 
