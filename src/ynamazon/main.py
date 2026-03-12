@@ -2,17 +2,26 @@ from dataclasses import dataclass, field
 from difflib import unified_diff
 from typing import TYPE_CHECKING
 
+from amazonorders.exception import AmazonOrdersAuthError, AmazonOrdersNotFoundError
 from loguru import logger
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import Timeout as RequestsTimeout
 from rich.console import Console
 from rich.prompt import Confirm
 from rich.syntax import Syntax
+from ynab.exceptions import (
+    BadRequestException,
+    ForbiddenException,
+    ServiceException,
+    UnauthorizedException,
+)
 
 from ynamazon.amazon_transactions import (
     AmazonConfig,
     AmazonTransactionRetriever,
     locate_amazon_transaction_by_amount,
 )
-from ynamazon.exceptions import YnabSetupError
+from ynamazon.exceptions import FatalSyncError, TransientSyncError, YnabSetupError
 from ynamazon.settings import settings
 from ynamazon.ynab_transactions import default_configuration as ynab_configuration
 from ynamazon.ynab_transactions import (
@@ -74,11 +83,30 @@ def process_transactions(  # noqa: C901
     except YnabSetupError:
         console.print("[bold red]No matching Transactions found in YNAB. Exiting.[/]")
         return result
+    except (UnauthorizedException, ForbiddenException) as e:
+        raise FatalSyncError(f"YNAB auth error: {e}", sync_result=result) from e
+    except BadRequestException as e:
+        raise FatalSyncError(f"YNAB bad request: {e}", sync_result=result) from e
+    except ServiceException as e:
+        raise TransientSyncError(f"YNAB service error: {e}", sync_result=result) from e
+    except (RequestsConnectionError, RequestsTimeout) as e:
+        raise TransientSyncError(f"YNAB network error: {e}", sync_result=result) from e
 
     console.print("[cyan]Starting search for Amazon transactions...[/]")
-    amazon_trans = AmazonTransactionRetriever(
-        amazon_config=amazon_config, force_refresh_amazon=force_refresh_amazon
-    ).get_amazon_transactions()
+    try:
+        amazon_trans = AmazonTransactionRetriever(
+            amazon_config=amazon_config, force_refresh_amazon=force_refresh_amazon
+        ).get_amazon_transactions()
+    except AmazonOrdersAuthError as e:
+        raise FatalSyncError(f"Amazon auth error: {e}", sync_result=result) from e
+    except AmazonOrdersNotFoundError as e:
+        raise FatalSyncError(f"Amazon not found: {e}", sync_result=result) from e
+    except RuntimeError as e:
+        if "authentication failed" in str(e).lower():
+            raise FatalSyncError(f"Amazon auth check failed: {e}", sync_result=result) from e
+        raise
+    except (RequestsConnectionError, RequestsTimeout) as e:
+        raise TransientSyncError(f"Amazon network error: {e}", sync_result=result) from e
 
     console.print(f"[green]{len(amazon_trans)} Amazon transactions retrieved successfully.[/]")
     result.ynab_count = len(ynab_trans)
@@ -192,11 +220,24 @@ def process_transactions(  # noqa: C901
             f"Updating transaction {ynab_tran.id} with Amazon order #{amazon_tran.order_number}"
         )
 
-        update_ynab_transaction(
-            transaction=ynab_tran,
-            memo=memo_text,
-            payee_id=amazon_with_memo_payee.id,
-        )
+        try:
+            update_ynab_transaction(
+                transaction=ynab_tran,
+                memo=memo_text,
+                payee_id=amazon_with_memo_payee.id,
+            )
+        except BadRequestException as e:
+            logger.error(f"Failed to update transaction {ynab_tran.id}: {e}")
+            result.errors.append(f"YNAB update failed for {ynab_tran.id}: {e}")
+            result.skipped += 1
+            continue
+        except (UnauthorizedException, ForbiddenException) as e:
+            raise FatalSyncError(f"YNAB auth error during update: {e}", sync_result=result) from e
+        except ServiceException as e:
+            raise TransientSyncError(
+                f"YNAB service error during update: {e}", sync_result=result
+            ) from e
+
         result.updated += 1
         logger.info(f"Transaction {ynab_tran.id} updated successfully")
         console.print("\n\n")
