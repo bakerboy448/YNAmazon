@@ -1,6 +1,63 @@
 # CHANGELOG
 
 
+## v0.8.0 (2026-03-12)
+
+### Bug Fixes
+
+- **tests**: Skip memo truncation tests when openai not installed and fix deptry mapping
+  ([`191747f`](https://github.com/bakerboy448/YNAmazon/commit/191747f7cd3fe60827020fa9ccb8476e8f0dea5f))
+
+Add pytest.importorskip("openai") so memo tests skip gracefully when openai isn't installed. Add
+  deptry package_module_name_map for amazon-orders -> amazonorders.
+
+### Documentation
+
+- Add CI and license badges to README
+  ([`0a69c53`](https://github.com/bakerboy448/YNAmazon/commit/0a69c53acc65b6d6804d823733e92b6c6974366c))
+
+### Features
+
+- Add custom User-Agent to all outgoing HTTP requests
+  ([`de20674`](https://github.com/bakerboy448/YNAmazon/commit/de20674c5942912f2355449f6c8ee548ff39daa9))
+
+Set YNAmazon/{version} user-agent on YNAB SDK, OpenAI, and GitHub API calls to identify the app in
+  server logs and API analytics.
+
+- Add retry_on_transient utility
+  ([`206c010`](https://github.com/bakerboy448/YNAmazon/commit/206c0100a3ac8e46ac6151b9ea69fcb6760074fa))
+
+Exponential backoff retry for TransientSyncError (5s, 10s, 20s). Non-transient exceptions propagate
+  immediately.
+
+- Add TransientSyncError and FatalSyncError exceptions
+  ([`45c36df`](https://github.com/bakerboy448/YNAmazon/commit/45c36df8f69f145e1d21a9cd3aa73bfd44679d44))
+
+Typed exceptions for differentiating retryable errors (network, 5xx) from fatal errors (auth, bad
+  config) in the sync loop.
+
+- Add typed error handling to daemon sync with retry and notification improvements
+  ([`67a9730`](https://github.com/bakerboy448/YNAmazon/commit/67a973041af7f02bf8fd0afadeb1f0ecc543bdd2))
+
+Replace generic except in _run_daemon_sync with typed handlers using retry_on_transient. Add
+  notification retry, _build_error_message helper, and include partial sync progress in error
+  notifications.
+
+- Wrap errors in process_transactions with typed exceptions
+  ([`383b23e`](https://github.com/bakerboy448/YNAmazon/commit/383b23e88727733b00b94f18f13fad15cd7dd933))
+
+YNAB auth/service errors and Amazon auth/network errors are now wrapped as FatalSyncError or
+  TransientSyncError. BadRequestException during YNAB update logs and continues instead of crashing.
+
+### Testing
+
+- Add error handling and retry tests
+  ([`778f778`](https://github.com/bakerboy448/YNAmazon/commit/778f77895e4860dc764f153a8a137fa2f1e82ad8))
+
+Tests for TransientSyncError/FatalSyncError exception classes and retry_on_transient exponential
+  backoff logic.
+
+
 ## v0.7.1 (2026-02-26)
 
 ### Bug Fixes
