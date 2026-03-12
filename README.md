@@ -3,15 +3,18 @@
 [![CI](https://github.com/bakerboy448/YNAmazon/actions/workflows/ci.yml/badge.svg)](https://github.com/bakerboy448/YNAmazon/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A program to annotate YNAB transactions with Amazon order info.
+A CLI tool that matches [YNAB](https://www.ynab.com/) transactions to [Amazon](https://www.amazon.com/) orders and annotates them with item details.
 
 ## Features
 
 - Automatically matches YNAB transactions to Amazon orders by amount
 - Generates detailed memos with item names, prices, and order numbers
 - Supports dry-run mode to preview changes before applying
+- Daemon mode with configurable scheduling (interval or time windows)
+- Typed error handling with automatic retry on transient failures
+- Notifications via [Apprise](https://github.com/caronc/apprise) (100+ services)
 - Docker support for easy deployment
-- Optional AI summarization with OpenAI
+- Optional AI memo summarization with OpenAI
 
 ## Quick Start
 
@@ -121,6 +124,14 @@ yna daemon --dry-run
 
 Daemon mode runs immediately on start, then at the configured interval or within time windows.
 
+### Error Handling
+
+The daemon uses typed exceptions for intelligent error handling:
+
+- **Transient errors** (network timeouts, 5xx responses) are retried up to 3 times with exponential backoff (5s, 10s, 20s)
+- **Fatal errors** (auth failures, bad config) are reported immediately without retry
+- All errors include partial sync progress in notifications when available
+
 ### Docker Daemon
 
 ```yaml
@@ -149,9 +160,10 @@ APPRISE_URLS=discord://webhook_id/webhook_token,tgram://bot_token/chat_id
 Apprise supports 100+ notification services including Discord, Telegram, Slack, Email, Pushover, and more. See the [Apprise wiki](https://github.com/caronc/apprise/wiki) for URL formats.
 
 Notifications are sent for:
-- Successful syncs (with match/update counts)
-- Failed syncs (with error type)
-- No matches found (warning)
+- Successful syncs with updates (match/update/skip counts)
+- Transient failures after retry exhaustion (warning)
+- Fatal failures requiring intervention (failure)
+- Unexpected errors (failure)
 
 ## Memo Format
 
@@ -202,15 +214,20 @@ The program will automatically generate OTP codes for login.
 uv sync --dev
 
 # Run tests
-uv run pytest
+uv run pytest -v
 
-# Lint
-uv run ruff check src/
-uv run ruff format src/
+# Run pre-commit hooks
+uv run pre-commit run --all-files
+
+# Lint and format
+uv run ruff check src/ tests/
+uv run ruff format src/ tests/
 
 # Type check
 uv run pyright src/
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines.
 
 ## License
 
