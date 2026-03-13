@@ -1,8 +1,10 @@
-from collections.abc import Generator, Iterable
+import time
+from collections.abc import Callable, Generator, Iterable
 from contextlib import contextmanager
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import Any, TypeVar
+from functools import wraps
+from typing import Any, ParamSpec, TypeVar
 
 from loguru import logger
 from pydantic import AnyUrl
@@ -12,6 +14,7 @@ from ynab.api.payees_api import PayeesApi
 from ynab.api.transactions_api import TransactionsApi
 from ynab.api_client import ApiClient
 from ynab.configuration import Configuration
+from ynab.exceptions import ApiException, UnauthorizedException
 from ynab.models.existing_transaction import ExistingTransaction
 from ynab.models.hybrid_transaction import HybridTransaction
 from ynab.models.payee import Payee
@@ -23,9 +26,48 @@ from ynamazon.exceptions import YnabSetupError
 from ynamazon.settings import settings
 
 YNAB_MEMO_LIMIT = 500
+_RATE_LIMIT_DELAYS = (60, 120, 240)  # seconds between retries on 429
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
 
 default_configuration = Configuration(access_token=settings.ynab_api_key.get_secret_value())
 my_budget_id = settings.ynab_budget_id
+
+
+def ynab_rate_limit_retry(func: Callable[_P, _R]) -> Callable[_P, _R]:
+    """Retry YNAB API calls on 429 rate limit with exponential backoff."""
+
+    @wraps(func)
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+        for attempt, delay in enumerate(_RATE_LIMIT_DELAYS):
+            try:
+                return func(*args, **kwargs)
+            except UnauthorizedException as exc:
+                logger.error(f"YNAB authentication failed: {exc}")
+                raise
+            except ApiException as exc:
+                if exc.status != 429:
+                    _log_ynab_api_error(exc)
+                    raise
+                logger.warning(
+                    f"YNAB rate limit hit (attempt {attempt + 1}/{len(_RATE_LIMIT_DELAYS)}). "
+                    f"Retrying in {delay}s..."
+                )
+                time.sleep(delay)
+        # Final attempt — let exceptions propagate
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def _log_ynab_api_error(exc: ApiException) -> None:
+    """Log a YNAB API error with meaningful context."""
+    status = exc.status or "unknown"
+    reason = exc.reason or "no reason"
+    logger.error(f"YNAB API error ({status}): {reason}")
+    if exc.body:
+        logger.debug(f"YNAB API response body: {exc.body}")
 
 
 @contextmanager
@@ -71,27 +113,71 @@ class TempYnabTransactions(ListRootModel[TempYnabTransaction]):
     def get_by_payee(
         cls, payee: Payee, *, configuration: Configuration, budget_id: str
     ) -> "TempYnabTransactions":
-        with ynab_api_client(configuration) as api_client:
-            response = TransactionsApi(api_client).get_transactions_by_payee(
-                budget_id=budget_id,
-                payee_id=payee.id,
-            )
+        return cls.from_hybrid(_fetch_transactions_by_payee(configuration, budget_id, payee.id))
 
-        return cls.from_hybrid(response.data.transactions)
+
+# Module-level payee cache: keyed by (access_token, budget_id)
+_payee_cache: dict[tuple[str, str], "Payees"] = {}
 
 
 class Payees(ListRootModel[Payee]):
     @classmethod
-    def get_by_budget(cls, *, configuration: Configuration, budget_id: str) -> "Payees":
-        with ynab_api_client(configuration) as api_client:
-            response = PayeesApi(api_client).get_payees(budget_id=budget_id)
-        return cls.model_validate(response.data.payees)
+    def get_by_budget(
+        cls,
+        *,
+        configuration: Configuration,
+        budget_id: str,
+        use_cache: bool = True,
+    ) -> "Payees":
+        cache_key = (configuration.access_token or "", budget_id)
+        if use_cache and cache_key in _payee_cache:
+            logger.debug("Using cached payee list")
+            return _payee_cache[cache_key]
+
+        result = cls.model_validate(_fetch_payees(configuration, budget_id))
+        _payee_cache[cache_key] = result
+        return result
 
     def get_named_payee(self, name: str) -> Payee | None:
         for payee in self.root:
             if payee.name == name:
                 return payee
         return None
+
+
+@ynab_rate_limit_retry
+def _fetch_payees(configuration: Configuration, budget_id: str) -> list[Payee]:
+    """Fetch payees from YNAB API with rate limit retry."""
+    with ynab_api_client(configuration) as api_client:
+        response = PayeesApi(api_client).get_payees(budget_id=budget_id)
+    return response.data.payees
+
+
+@ynab_rate_limit_retry
+def _fetch_transactions_by_payee(
+    configuration: Configuration, budget_id: str, payee_id: str
+) -> list[HybridTransaction]:
+    """Fetch transactions by payee from YNAB API with rate limit retry."""
+    with ynab_api_client(configuration) as api_client:
+        response = TransactionsApi(api_client).get_transactions_by_payee(
+            budget_id=budget_id,
+            payee_id=payee_id,
+        )
+    return response.data.transactions
+
+
+@ynab_rate_limit_retry
+def _update_transaction_api(
+    configuration: Configuration,
+    budget_id: str,
+    transaction_id: str,
+    data: PutTransactionWrapper,
+) -> None:
+    """Update a YNAB transaction with rate limit retry."""
+    with ynab_api_client(configuration) as api_client:
+        TransactionsApi(api_client=api_client).update_transaction(
+            budget_id=budget_id, transaction_id=transaction_id, data=data
+        )
 
 
 def get_payees_by_budget(
@@ -109,10 +195,7 @@ def get_payees_by_budget(
     """
     configuration = configuration or default_configuration
     budget_id = budget_id or my_budget_id.get_secret_value()
-    with ynab_api_client(configuration) as api_client:
-        response = PayeesApi(api_client).get_payees(budget_id=budget_id)
-
-    return response.data.payees
+    return _fetch_payees(configuration, budget_id)
 
 
 def get_transactions_by_payee(
@@ -132,13 +215,9 @@ def get_transactions_by_payee(
     """
     configuration = configuration or default_configuration
     budget_id = budget_id or my_budget_id.get_secret_value()
-    with ynab_api_client(configuration) as api_client:
-        response = TransactionsApi(api_client).get_transactions_by_payee(
-            budget_id=budget_id,
-            payee_id=payee.id,
-        )
-
-    return translate_hybrid_to_temp(response.data.transactions)
+    return translate_hybrid_to_temp(
+        _fetch_transactions_by_payee(configuration, budget_id, payee.id)
+    )
 
 
 def get_ynab_transactions(
@@ -263,10 +342,7 @@ def update_ynab_transaction(
     logger.debug(f"Updating YNAB transaction {transaction.id} with memo length {len(memo_str)}")
     data.transaction.memo = memo_str
     data.transaction.payee_id = payee_id
-    with ynab_api_client(configuration) as api_client:
-        _ = TransactionsApi(api_client=api_client).update_transaction(
-            budget_id=budget_id, transaction_id=transaction.id, data=data
-        )
+    _update_transaction_api(configuration, budget_id, transaction.id, data)
     logger.info(f"Successfully updated transaction {transaction.id}")
 
 

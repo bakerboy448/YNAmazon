@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     date_mismatch_tolerance_days: int = (
         0  # Allow date differences up to N days (0 = exact match required)
     )
+    amount_match_tolerance: float = (
+        2.00  # Max dollar diff for fuzzy amount matching (0 = exact only)
+    )
     non_interactive: bool = False  # Skip all confirmation prompts (for daemon/automated mode)
     apprise_urls: SecretStr = SecretStr(
         ""

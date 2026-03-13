@@ -17,6 +17,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential zlib1g-dev libjpeg-dev
       - run: uv sync --frozen --dev
@@ -30,6 +32,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential zlib1g-dev libjpeg-dev
       - run: uv sync --frozen --dev
@@ -41,6 +45,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential zlib1g-dev libjpeg-dev
       - run: uv sync --frozen --group test --extra ai
@@ -50,13 +56,15 @@ jobs:
           YNAB_BUDGET_ID: test-budget
           AMAZON_USER: test@example.com
           AMAZON_PASSWORD: test-password
-        run: uv run pytest tests/ -v --tb=short
+        run: uv run pytest tests/ -v --tb=short --cov=ynamazon --cov-report=term-missing
 
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential zlib1g-dev libjpeg-dev
       - run: uv build
