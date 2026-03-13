@@ -119,19 +119,33 @@ def process_transactions(  # noqa: C901
         )
         # because YNAB uses "milliunits" for amounts, we need to convert to dollars
         logger.debug(f"YNAB transaction amount [dollars]: {ynab_tran.amount_decimal}")
-        amazon_tran_index = locate_amazon_transaction_by_amount(
-            amazon_trans=amazon_trans, amount=ynab_tran.amount_decimal
+        amazon_tran_index, is_fuzzy = locate_amazon_transaction_by_amount(
+            amazon_trans=amazon_trans,
+            amount=ynab_tran.amount_decimal,
+            tolerance=settings.amount_match_tolerance,
         )
-        if not amazon_tran_index:
+        if amazon_tran_index is None:
             console.print("[bold yellow]**** Could not find a matching Amazon Transaction![/]")
             result.skipped += 1
             continue
 
         amazon_tran = amazon_trans[amazon_tran_index]
         result.matched += 1
-        console.print(
-            f"[green]Matching Amazon Transaction:[/] {amazon_tran.completed_date} ${amazon_tran.transaction_total:.2f}"
-        )
+
+        if is_fuzzy:
+            amount_diff = abs(amazon_tran.transaction_total - (-ynab_tran.amount_decimal))
+            console.print(
+                f"[yellow]**** Fuzzy match (diff: ${amount_diff:.2f}):[/] "
+                f"{amazon_tran.completed_date} ${amazon_tran.transaction_total:.2f}"
+            )
+            logger.warning(
+                f"Fuzzy amount match: YNAB ${-ynab_tran.amount_decimal:.2f} ≈ "
+                f"Amazon ${amazon_tran.transaction_total:.2f} (diff: ${amount_diff:.2f})"
+            )
+        else:
+            console.print(
+                f"[green]Matching Amazon Transaction:[/] {amazon_tran.completed_date} ${amazon_tran.transaction_total:.2f}"
+            )
 
         # Build memo: "Item A ($XX.XX), Item B ($XX.XX) | Order #XXX"
         def format_item(item) -> str:

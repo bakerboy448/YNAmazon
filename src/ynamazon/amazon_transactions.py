@@ -263,19 +263,55 @@ def _truncate_title(title: str, max_length: int = 20) -> str:
 
 
 def locate_amazon_transaction_by_amount(
-    amazon_trans: list[AmazonTransactionWithOrderInfo], amount: Decimal
-) -> int | None:
+    amazon_trans: list[AmazonTransactionWithOrderInfo],
+    amount: Decimal,
+    tolerance: float = 0.0,
+) -> tuple[int | None, bool]:
     """Given an amount, locate a matching Amazon transaction.
+
+    Tries exact match first, then falls back to closest match within tolerance.
 
     Args:
         amazon_trans (list[AmazonTransactionWithOrderInfo]): A list of Amazon transactions
-        amount (Decimal): An amount to match
+        amount (Decimal): An amount to match (positive, e.g. 26.99)
+        tolerance (float): Maximum dollar difference for fuzzy matching (0 = exact only)
 
     Returns:
-        int | None: Index of matched transaction in `amazon_trans` or None if no match
+        tuple[int | None, bool]: (index of match or None, True if fuzzy match)
     """
-    for idx, a_tran in enumerate(amazon_trans):
-        if a_tran.transaction_total == -amount:
-            return idx
+    target = -amount  # transaction_total is inverted (negative = charge)
 
-    return None
+    # Exact match first
+    for idx, a_tran in enumerate(amazon_trans):
+        if a_tran.transaction_total == target:
+            return idx, False
+
+    # Fuzzy match within tolerance
+    if tolerance > 0:
+        tolerance_decimal = Decimal(str(tolerance))
+        best_idx: int | None = None
+        best_diff = tolerance_decimal + 1  # start above threshold
+
+        for idx, a_tran in enumerate(amazon_trans):
+            diff = abs(a_tran.transaction_total - target)
+            if diff <= tolerance_decimal and diff < best_diff:
+                best_diff = diff
+                best_idx = idx
+
+        if best_idx is not None:
+            return best_idx, True
+
+        # Log near-misses for debugging
+        near_matches = [
+            (idx, abs(a_tran.transaction_total - target))
+            for idx, a_tran in enumerate(amazon_trans)
+            if abs(a_tran.transaction_total - target) <= tolerance_decimal * 2
+        ]
+        if near_matches:
+            for idx, diff in near_matches:
+                logger.info(
+                    f"Near-miss: Amazon ${amazon_trans[idx].transaction_total:.2f} "
+                    f"vs YNAB ${-amount:.2f} (diff: ${diff:.2f}, tolerance: ${tolerance:.2f})"
+                )
+
+    return None, False
