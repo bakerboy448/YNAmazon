@@ -18,7 +18,7 @@ RUN apt-get update && \
 
 RUN useradd -m ynamazon
 WORKDIR /app
-RUN mkdir -p /app/output /app/config && chown -R ynamazon:ynamazon /app
+RUN mkdir -p /app/config /app/cache && chown -R ynamazon:ynamazon /app
 COPY --from=builder --chown=ynamazon:ynamazon /app/.venv /app/.venv
 COPY --from=builder --chown=ynamazon:ynamazon /app/src /app/src
 
@@ -26,6 +26,7 @@ ENV PATH="/app/.venv/bin:$PATH" \
     VIRTUAL_ENV="/app/.venv" \
     CHROME_BIN=/usr/bin/chromium \
     CHROMEDRIVER_PATH=/usr/bin/chromedriver \
+    AMAZON_CACHE_DIR="/app/cache" \
     MATCH_EMPTY_MEMO="true" \
     AMAZON_DEBUG="false" \
     AMAZON_FULL_DETAILS="true" \

@@ -13,8 +13,9 @@ quote-annotations = true
 [lint.pydocstyle]
 convention = "google"
 
-# [lint.per-file-ignores]
-# "!src/**.py" = ["D"]
+[lint.per-file-ignores]
+# E402: warnings.filterwarnings must run before cache_decorator import
+"src/ynamazon/amazon_transactions.py" = ["E402"]
 
 [format]
 quote-style = "double"

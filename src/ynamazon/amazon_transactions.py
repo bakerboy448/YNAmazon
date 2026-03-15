@@ -1,7 +1,13 @@
 # pyright: reportDeprecated=false
+import os
+import warnings
+
+# Suppress SyntaxWarning from cache_decorator's use of invalid escape sequences
+warnings.filterwarnings("ignore", message="invalid escape sequence", module="cache_decorator")
+
 from datetime import date
-from pathlib import Path
 from decimal import Decimal
+from pathlib import Path
 from typing import Annotated  # ,  Self  # not available python <3.11
 
 from amazonorders.entity.order import Order
@@ -125,7 +131,8 @@ class AmazonTransactionRetriever:
     @Cache(
         validity_duration="2h",
         enable_cache_arg_name="use_cache",
-        cache_path=str(Path.home() / ".cache" / "ynamazon" / "transactions_{_hash}.pkl"),
+        cache_path=os.environ.get("AMAZON_CACHE_DIR", str(Path.home() / ".cache" / "ynamazon"))
+        + "/transactions_{_hash}.pkl",
     )
     def _get_amazon_transactions(
         self,
