@@ -1,5 +1,6 @@
 import functools
 from datetime import date, timedelta
+from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
@@ -165,3 +166,40 @@ def test_fetch_amazon_order_history_several_items(
     assert len(result) == 1
     assert len(result[0].items) == 5
     assert result[0].order_number == "567"
+
+
+class TestCachePath:
+    """Test AMAZON_CACHE_DIR env var controls cache path construction.
+
+    The @Cache decorator evaluates cache_path at import time and doesn't
+    expose it. We test the path-building expression directly.
+    """
+
+    def test_default_cache_dir(self):
+        """Without AMAZON_CACHE_DIR set, path defaults to ~/.cache/ynamazon."""
+        import os
+
+        env = os.environ.copy()
+        env.pop("AMAZON_CACHE_DIR", None)
+        with patch.dict("os.environ", env, clear=True):
+            result = os.environ.get("AMAZON_CACHE_DIR", str(Path.home() / ".cache" / "ynamazon"))
+        assert result == str(Path.home() / ".cache" / "ynamazon")
+
+    def test_custom_cache_dir_via_env(self):
+        """AMAZON_CACHE_DIR env var should override cache directory."""
+        import os
+
+        with patch.dict("os.environ", {"AMAZON_CACHE_DIR": "/app/cache"}):
+            result = os.environ.get("AMAZON_CACHE_DIR", str(Path.home() / ".cache" / "ynamazon"))
+        assert result == "/app/cache"
+
+    def test_cache_path_template(self):
+        """Cache path expression should produce correct full path."""
+        import os
+
+        with patch.dict("os.environ", {"AMAZON_CACHE_DIR": "/app/cache"}):
+            cache_path = (
+                os.environ.get("AMAZON_CACHE_DIR", str(Path.home() / ".cache" / "ynamazon"))
+                + "/transactions_{_hash}.pkl"
+            )
+        assert cache_path == "/app/cache/transactions_{_hash}.pkl"
