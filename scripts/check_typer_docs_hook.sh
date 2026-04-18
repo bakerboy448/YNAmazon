@@ -12,6 +12,6 @@ CLI_NAME="yna"
 typer "$MODULE_NAME" utils docs --output "$OUTPUT_FILENAME" --name "$CLI_NAME"
 
 git diff --exit-code $OUTPUT_FILENAME || {
-    echo "Typer docs are out of date. Please re-run the docs generator."
-    exit 1
+  echo "Typer docs are out of date. Please re-run the docs generator."
+  exit 1
 }

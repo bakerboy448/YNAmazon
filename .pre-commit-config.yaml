@@ -7,6 +7,7 @@ repos:
       - id: check-yaml
       - id: check-json
         files: \.json$
+        exclude: \.vscode/launch\.json
       - id: check-added-large-files
       - id: check-merge-conflict
       - id: detect-private-key
