@@ -12,7 +12,7 @@ repos:
       - id: check-merge-conflict
       - id: detect-private-key
       - id: no-commit-to-branch
-        args: ['--branch', 'master']
+        args: ['--branch', 'main']
 
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.35.1
