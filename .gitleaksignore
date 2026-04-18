@@ -1,0 +1,4 @@
+# .secrets.baseline contains hashed secret fingerprints, not actual secrets
+.secrets.baseline:generic-api-key:136
+.secrets.baseline:generic-api-key:143
+.secrets.baseline:generic-api-key:152
