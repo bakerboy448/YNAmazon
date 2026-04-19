@@ -62,11 +62,15 @@ repos:
       - id: uv-export
         args: [--quiet]
 
-  - repo: https://github.com/fpgmaas/deptry.git
-    rev: 0.23.1
+  - repo: local
     hooks:
       - id: deptry
+        name: deptry
+        language: python
+        entry: deptry
         args: [src]
+        additional_dependencies: ['deptry==0.23.1']
+        pass_filenames: false
 
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: v4.0.0
