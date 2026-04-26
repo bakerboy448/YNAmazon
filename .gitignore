@@ -179,3 +179,7 @@ cython_debug/
 .pypirc
 
 *.env_*
+
+# MemPalace per-project files (issue #185)
+mempalace.yaml
+entities.json
