@@ -3,7 +3,7 @@ name = "YNAmazon"
 dynamic = ["version"]
 description = "YNAmazon - A program to annotate YNAB transactions with Amazon order info "
 readme = "README.md"
-requires-python = ">=3.9,<3.13"
+requires-python = ">=3.11,<3.13"
 license = "MIT"
 dependencies = [
     "amazon-orders>=3.2.15",
