@@ -18,7 +18,7 @@ dependencies = [
     "requests>=2.32.5",
     "cache-decorator>=2.2.0",
     "schedule>=1.2.0",
-    "apprise>=1.9.0",
+    "apprise>=1.11.0,<2",
 ]
 
 [project.optional-dependencies]
